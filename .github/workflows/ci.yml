@@ -30,11 +30,14 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
 
-      # `npm install` plutôt que `npm ci` : le lock est généré sous Windows et
-      # n'inclut pas les binaires optionnels de rollup pour Linux
-      # (bug npm connu #4828). `install` résout le binaire de la plateforme.
+      # Le package-lock.json est généré sous Windows et n'inclut pas les
+      # binaires natifs optionnels de rollup pour Linux (bug npm connu #4828,
+      # qui persiste même avec `npm install`). On le retire pour forcer une
+      # résolution propre du binaire de la plateforme du runner.
       - name: Installer les dépendances
-        run: npm install --no-audit --no-fund
+        run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
 
       - name: Vérification des types
         run: npm run typecheck
@@ -66,6 +69,8 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm install --no-audit --no-fund
+      - run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
       - name: Build API + interface web
         run: npm run build
