@@ -1,0 +1,223 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Jetons de couleur.
+ *
+ * Exprimés en composantes RVB brutes pour que Tailwind puisse leur appliquer
+ * une opacité (`bg-surface/60`). Le thème clair est la valeur par défaut ;
+ * `.dark` surcharge les mêmes jetons, si bien qu'aucun composant n'a besoin
+ * de connaître le thème actif.
+ */
+@layer base {
+  :root {
+    --canvas: 250 250 251;
+    --surface: 255 255 255;
+    --elevated: 255 255 255;
+    --border: 226 228 233;
+    --border-strong: 203 206 214;
+    --ink: 17 19 24;
+    --muted: 92 97 110;
+    --faint: 140 146 160;
+    --accent: 59 92 246;
+    --accent-soft: 232 237 255;
+    --safe: 21 145 96;
+    --caution: 193 128 12;
+    --risky: 214 96 24;
+    --danger: 206 46 46;
+  }
+
+  .dark {
+    --canvas: 9 10 13;
+    --surface: 17 19 24;
+    --elevated: 24 27 34;
+    --border: 38 42 51;
+    --border-strong: 56 61 73;
+    --ink: 241 243 247;
+    --muted: 154 161 175;
+    --faint: 106 113 128;
+    --accent: 122 152 255;
+    --accent-soft: 26 33 58;
+    --safe: 61 200 141;
+    --caution: 235 178 62;
+    --risky: 246 146 74;
+    --danger: 248 113 113;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Respect strict de la préférence système : aucune animation superflue. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Anneau de focus visible uniquement au clavier, jamais à la souris. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.25);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full;
+    background: rgb(var(--border-strong) / 0.7);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--faint) / 0.8);
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-border bg-surface shadow-soft;
+  }
+
+  .card-interactive {
+    @apply card transition-all duration-200 ease-smooth hover:border-border-strong hover:shadow-lifted;
+  }
+
+  /* Texte secondaire : un cran de contraste en dessous, jamais illisible. */
+  .prose-veritas {
+    @apply text-[0.9375rem] leading-relaxed text-muted;
+  }
+
+  .prose-veritas strong {
+    @apply font-semibold text-ink;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-2xs font-medium text-muted;
+  }
+
+  /* Rendu du Markdown minimal produit par l'assistant. */
+  .chat-markdown p {
+    @apply leading-relaxed;
+  }
+  .chat-markdown ul {
+    @apply my-1 space-y-1 pl-1;
+  }
+  .chat-markdown li {
+    @apply relative pl-4;
+  }
+  .chat-markdown li::before {
+    @apply absolute left-0 text-faint;
+    content: '•';
+  }
+  .chat-markdown hr {
+    @apply my-2 border-border;
+  }
+  .chat-markdown strong {
+    @apply font-semibold;
+  }
+
+  /* Effet de chargement, préféré à un indicateur tournant : il annonce la forme du contenu à venir. */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-elevated;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    content: '';
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--border-strong) / 0.35),
+      transparent
+    );
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Dégradé de fond très discret, qui donne de la profondeur sans distraire. */
+  .canvas-gradient {
+    background-image:
+      radial-gradient(60rem 40rem at 15% -10%, rgb(var(--accent) / 0.07), transparent 60%),
+      radial-gradient(50rem 30rem at 90% 0%, rgb(var(--accent) / 0.05), transparent 55%);
+  }
+}
+
+/**
+ * Impression / export PDF d'un rapport.
+ *
+ * Un rapport imprimé sert souvent de pièce jointe à un signalement ou une
+ * plainte : il doit être lisible sur papier, sans la navigation ni le chat.
+ * On force un rendu clair, on masque le superflu, et on évite de couper un
+ * constat entre deux pages.
+ */
+@media print {
+  :root {
+    --canvas: 255 255 255;
+    --surface: 255 255 255;
+    --elevated: 250 250 251;
+    --border: 210 214 220;
+    --ink: 17 19 24;
+    --muted: 60 64 72;
+    --faint: 110 116 128;
+  }
+
+  .print-hide,
+  header,
+  footer,
+  aside {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid rgb(var(--border)) !important;
+    break-inside: avoid;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.7rem;
+    color: rgb(var(--faint));
+    word-break: break-all;
+  }
+}

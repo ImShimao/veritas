@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "types": ["chrome"],
+    "baseUrl": ".",
+    "paths": {
+      "@veritas/core": ["../../packages/core/src/index.ts"],
+      "@veritas/core/*": ["../../packages/core/src/*"],
+      "@veritas/engine": ["../../packages/engine/src/index.ts"],
+      "@veritas/engine/*": ["../../packages/engine/src/*"],
+      "@veritas/extractors": ["../../packages/extractors/src/index.ts"],
+      "@veritas/nlu": ["../../packages/nlu/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>Veritas</title>
+  </head>
+  <body>
+    <header class="head">
+      <span class="brand">
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        Veritas
+      </span>
+      <button id="settings-toggle" class="icon-btn" title="Réglages" aria-label="Réglages">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+          />
+        </svg>
+      </button>
+    </header>
+
+    <a id="update-banner" class="update-banner hidden" href="#" target="_blank" rel="noreferrer">
+      <span id="update-text">Mise à jour disponible</span>
+      <span id="update-link-wrap">Télécharger →</span>
+      <a id="update-link" href="#" target="_blank" rel="noreferrer" hidden></a>
+    </a>
+
+    <section id="settings" class="settings hidden">
+      <p id="about" class="about"></p>
+      <button id="check-update-now" class="btn btn-secondary">Vérifier les mises à jour</button>
+    </section>
+
+    <main>
+      <div id="idle" class="state">
+        <p class="lead">Analysez la fiabilité de l'annonce ouverte dans cet onglet.</p>
+        <button id="analyze" class="btn btn-primary">Analyser cette annonce</button>
+        <p class="hint">
+          Analyse 100 % locale, dans votre navigateur. Aucune donnée n'est envoyée.
+        </p>
+      </div>
+
+      <div id="loading" class="state hidden">
+        <div class="spinner"></div>
+        <p class="lead">Analyse en cours…</p>
+        <p class="hint">Lecture de la page, prix, vendeur, formulation.</p>
+      </div>
+
+      <div id="error" class="state hidden">
+        <p class="lead err">Analyse impossible</p>
+        <p id="error-message" class="hint"></p>
+        <button id="retry" class="btn btn-secondary">Réessayer</button>
+      </div>
+
+      <div id="report" class="state hidden">
+        <div class="verdict-row">
+          <div class="ring" id="risk-ring"><span id="risk-value">—</span><small>risque</small></div>
+          <div class="verdict-meta">
+            <span class="badge" id="verdict-badge">—</span>
+            <p class="title" id="report-title"></p>
+            <p class="mini">
+              Confiance <b id="report-trust">—</b> · Authenticité <b id="report-auth">—</b>
+            </p>
+            <p class="meta" id="report-meta"></p>
+          </div>
+        </div>
+
+        <p class="summary" id="report-summary"></p>
+
+        <h3 class="section-title">Constats</h3>
+        <div class="findings" id="findings"></div>
+
+        <h3 class="section-title">Que faire</h3>
+        <div class="recommendations" id="recommendations"></div>
+
+        <div class="q-head">
+          <h3 class="section-title">Questions à poser</h3>
+          <button id="copy-questions" class="link-btn">Copier</button>
+        </div>
+        <ol class="questions" id="questions"></ol>
+
+        <div id="feedback" class="feedback hidden"></div>
+
+        <h3 class="section-title">Demander à Veritas</h3>
+        <div class="chat">
+          <div class="chat-log" id="chat-log"></div>
+          <div class="chat-suggestions" id="chat-suggestions"></div>
+          <div class="chat-input-row">
+            <textarea id="chat-input" rows="1" placeholder="Est-ce que tu achèterais ?"></textarea>
+            <button id="chat-send" class="btn btn-primary btn-sm" aria-label="Envoyer">➤</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

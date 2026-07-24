@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["packages/*/src/**/*", "apps/api/src/**/*", "tests/**/*"],
+  "comment": "apps/web a sa propre configuration (alias @/…) et est vérifié séparément ; apps/extension est du JavaScript natif sans build.",
+  "exclude": ["node_modules", "**/dist", "**/build", "apps/extension", "apps/web"]
+}

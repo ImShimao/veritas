@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+.data/
+*.log
+.env
+.env.local
+.DS_Store
+.vite/
+.turbo/
+*.tsbuildinfo
+apps/extension/dist/
+apps/extension/*.zip
+apps/desktop/build/
+apps/desktop/release/
+apps/desktop/node_modules/
+apps/desktop/package-lock.json
+
+# Notes et configuration d'outillage locales, non publiées
+CLAUDE.md
+.claude/

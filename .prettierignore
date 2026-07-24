@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+release/
+coverage/
+.data/
+apps/extension/icons/
+apps/desktop/build/
+apps/desktop/release/
+*.min.js
+package-lock.json

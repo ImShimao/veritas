@@ -1,0 +1,13 @@
+{
+  "name": "veritas-extension",
+  "version": "0.1.0",
+  "description": "Veritas — analyse de confiance des annonces. Extension navigateur autonome.",
+  "author": "ImShimao",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "package": "node build.mjs --zip"
+  }
+}

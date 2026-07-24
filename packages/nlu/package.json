@@ -1,0 +1,17 @@
+{
+  "name": "@veritas/nlu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Assistant conversationnel local de Veritas AI — aucune dépendance réseau",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@veritas/core": "*",
+    "@veritas/engine": "*"
+  }
+}

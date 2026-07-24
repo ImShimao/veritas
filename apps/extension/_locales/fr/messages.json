@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "Veritas — Analyse d'annonces",
+    "description": "Nom de l'extension"
+  },
+  "extDescription": {
+    "message": "Analysez la fiabilité d'une annonce en un clic, directement sur la page. 100 % local.",
+    "description": "Description de l'extension"
+  }
+}

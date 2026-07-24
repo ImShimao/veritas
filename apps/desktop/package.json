@@ -1,0 +1,102 @@
+{
+  "name": "veritas-desktop",
+  "productName": "Veritas",
+  "version": "0.1.0",
+  "description": "Veritas — analyse de confiance des annonces. Application de bureau.",
+  "author": "ImShimao",
+  "homepage": "https://github.com/ImShimao/veritas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ImShimao/veritas.git"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "prepare:assets": "node prepare.mjs",
+    "start": "electron .",
+    "dev": "npm run prepare:assets && electron .",
+    "dist": "npm run prepare:assets && electron-builder --win nsis portable --publish never",
+    "dist:portable": "npm run prepare:assets && electron-builder --win portable --publish never",
+    "dist:dir": "npm run prepare:assets && electron-builder --win dir --publish never",
+    "release": "npm run prepare:assets && electron-builder --win nsis portable --publish always"
+  },
+  "devDependencies": {
+    "electron": "^31.3.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "app.veritas.desktop",
+    "productName": "Veritas",
+    "copyright": "© ImShimao",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ImShimao",
+        "repo": "veritas"
+      }
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "node_modules/**/*",
+      "!**/*.map",
+      "!**/*.md",
+      "!**/*.ts"
+    ],
+    "extraResources": [
+      {
+        "from": "build/server.cjs",
+        "to": "server.cjs"
+      },
+      {
+        "from": "build/web",
+        "to": "web"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "Veritas-Portable-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Veritas",
+      "artifactName": "Veritas-Setup-${version}.${ext}",
+      "installerLanguages": [
+        "fr_FR"
+      ],
+      "language": "1036"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "build/icon.png",
+      "category": "Utility"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.utilities"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
+  }
+}

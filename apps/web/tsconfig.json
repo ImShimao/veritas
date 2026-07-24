@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "types": ["vite/client", "node"],
+    // baseUrl doit être ancré sur ce dossier, sinon les alias hérités
+    // de la config racine se résolvent depuis la racine du dépôt.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@veritas/core": ["../../packages/core/src/index.ts"],
+      "@veritas/core/*": ["../../packages/core/src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

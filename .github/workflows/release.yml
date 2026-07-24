@@ -1,0 +1,57 @@
+name: Release
+
+# Déclenché en poussant un tag de version, ex. `git tag v0.2.0 && git push --tags`.
+# Produit et publie automatiquement, dans la Release GitHub correspondante :
+#   • l'installeur Windows (Veritas-Setup-x.y.z.exe)
+#   • l'exécutable portable (Veritas-Portable-x.y.z.exe)
+#   • latest.yml  → c'est ce fichier qui permet à l'application installée de
+#                    détecter et proposer la mise à jour au prochain lancement
+#   • les extensions Chrome et Firefox (.zip)  → détectées par l'extension elle-même
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build et publication
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifications
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Construire les extensions (Chrome + Firefox)
+        run: npm run extension:package
+
+      - name: Installer Electron
+        run: npm --prefix apps/desktop install
+
+      - name: Construire et publier l'application de bureau
+        working-directory: apps/desktop
+        env:
+          # Jeton fourni automatiquement par GitHub Actions : autorise la
+          # publication dans la Release sans configurer de secret.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release
+
+      - name: Joindre les extensions à la Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release upload "${GITHUB_REF_NAME}" apps/extension/dist/*.zip --clobber

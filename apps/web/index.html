@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta
+      name="description"
+      content="Veritas — analyse de confiance des annonces en ligne. Détectez les arnaques avant d'acheter."
+    />
+    <title>Veritas — Analyse de confiance des annonces</title>
+    <script>
+      // Applique le thème avant le premier rendu pour éviter le flash de couleur.
+      (function () {
+        try {
+          var stored = localStorage.getItem('veritas.theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = stored || (prefersDark ? 'dark' : 'light');
+          document.documentElement.classList.toggle('dark', theme === 'dark');
+          document.documentElement.style.colorScheme = theme;
+        } catch (error) {
+          /* localStorage indisponible en navigation privée : on garde le thème sombre. */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

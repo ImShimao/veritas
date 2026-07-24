@@ -1,0 +1,32 @@
+{
+  "name": "@veritas/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API Veritas AI — Fastify, stockage local chiffré",
+  "main": "./src/main.ts",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup src/main.ts --format esm --target node18 --clean --sourcemap",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/helmet": "^11.1.1",
+    "@fastify/rate-limit": "^9.1.0",
+    "@fastify/sensible": "^5.6.0",
+    "@fastify/static": "^7.0.4",
+    "@veritas/core": "*",
+    "@veritas/engine": "*",
+    "@veritas/extractors": "*",
+    "@veritas/nlu": "*",
+    "fastify": "^4.28.1",
+    "pino": "^9.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "pino-pretty": "^11.2.1",
+    "tsup": "^8.1.0",
+    "tsx": "^4.16.2"
+  }
+}

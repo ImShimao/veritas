@@ -1,0 +1,58 @@
+{
+  "name": "veritas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Veritas — plateforme d'analyse de confiance des annonces en ligne",
+  "author": "ImShimao",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/ImShimao/veritas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ImShimao/veritas.git"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev --workspace @veritas/api",
+    "dev:web": "npm run dev --workspace @veritas/web",
+    "build": "npm run build --workspace @veritas/api && npm run build --workspace @veritas/web",
+    "start": "npm run start --workspace @veritas/api",
+    "start:full": "npm run build --workspace @veritas/web && cross-env WEB_DIR=apps/web/dist npm run start --workspace @veritas/api",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit && tsc -p apps/extension/tsconfig.json --noEmit",
+    "extension:build": "node apps/extension/build.mjs",
+    "extension:package": "node apps/extension/build.mjs --zip",
+    "version:set": "node scripts/set-version.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md,css}\"",
+    "desktop:setup": "npm --prefix apps/desktop install",
+    "desktop": "npm --prefix apps/desktop run dev",
+    "desktop:dist": "npm --prefix apps/desktop run dist",
+    "desktop:portable": "npm --prefix apps/desktop run dist:portable"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^20.14.10",
+    "@vitest/coverage-v8": "^1.6.0",
+    "archiver": "^7.0.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "esbuild": "^0.23.0",
+    "eslint": "^9.7.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^1.6.0"
+  }
+}
