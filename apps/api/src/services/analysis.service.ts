@@ -7,10 +7,20 @@ import {
   type FeedbackDto,
 } from '@veritas/core';
 import { buildCorpusEntry, CalibrationTable, VeritasEngine } from '@veritas/engine';
-import { extractListing } from '@veritas/extractors';
+import { extractListing, type FetchedPage } from '@veritas/extractors';
 import type { Store } from '../store';
 import type { Fetcher } from './fetcher';
 import type { Logger } from '../logger';
+
+/**
+ * Récupérateur de page alternatif, injecté par l'hôte.
+ *
+ * L'application de bureau fournit ici une récupération par **vrai navigateur**
+ * (fenêtre Chromium cachée d'Electron), qui franchit les protections anti-robot
+ * là où une simple requête HTTP est bloquée — parce que c'est réellement un
+ * navigateur qui charge la page, pas un bot.
+ */
+export type PageFetcherOverride = (url: string) => Promise<FetchedPage>;
 
 /**
  * Orchestration d'une analyse.
@@ -21,6 +31,9 @@ import type { Logger } from '../logger';
  */
 export class AnalysisService {
   readonly engine: VeritasEngine;
+
+  /** Récupérateur de page prioritaire (vrai navigateur), si l'hôte en fournit un. */
+  private pageFetcher?: PageFetcherOverride;
 
   constructor(
     private readonly store: Store,
@@ -43,6 +56,11 @@ export class AnalysisService {
     }
   }
 
+  /** Enregistre un récupérateur de page alternatif (vrai navigateur). */
+  setPageFetcher(fetcher: PageFetcherOverride): void {
+    this.pageFetcher = fetcher;
+  }
+
   async analyze(input: AnalysisInputDto): Promise<AnalysisReport> {
     const extraction = await extractListing({
       url: input.url,
@@ -51,7 +69,23 @@ export class AnalysisService {
       images: input.images,
       platformHint: input.platformHint,
       domainHint: input.domainHint,
-      fetchPage: (url) => this.fetcher.fetchPage(url),
+      // Priorité au vrai navigateur quand l'hôte en fournit un (application de
+      // bureau), sinon la récupération HTTP standard. Le second sert de repli
+      // si le navigateur échoue.
+      fetchPage: async (url) => {
+        if (this.pageFetcher) {
+          try {
+            const page = await this.pageFetcher(url);
+            if (!page.blocked && page.html && page.html.length > 500) return page;
+          } catch (error) {
+            this.logger.warn(
+              { url, error: error instanceof Error ? error.message : String(error) },
+              'Récupération navigateur échouée, repli HTTP',
+            );
+          }
+        }
+        return this.fetcher.fetchPage(url);
+      },
     });
 
     this.logger.info(

@@ -95,6 +95,16 @@ export interface PriceAssessment {
   expectedDiscount?: number;
   /** Part de la décote qui reste inexpliquée après prise en compte de l'état. */
   unexplainedDiscount?: number;
+  /** Prix neuf de référence, quand il est connu ou estimable. */
+  newPrice?: number;
+  /** Fourchette de prix d'occasion attendue pour ce bien. */
+  usedRange?: { low: number; high: number };
+  /** Comment le prix de référence a été obtenu (modèle exact, estimation par catégorie…). */
+  referenceBasis?: string;
+  /** Fiabilité de la référence de prix : exacte, estimée, ou absente. */
+  referenceQuality: 'exact' | 'estimated' | 'none';
+  /** Recherches pré-remplies pour comparer le prix soi-même (toujours fournies). */
+  searchLinks?: { engine: string; url: string }[];
   verdict: 'suspicious_low' | 'below_market' | 'fair' | 'above_market' | 'unknown';
   explanation: string;
 }

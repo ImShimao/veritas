@@ -23,7 +23,15 @@ const schema = z.object({
 
   FETCH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(15_000),
   FETCH_MAX_BYTES: z.coerce.number().int().min(65_536).default(5_242_880),
-  FETCH_USER_AGENT: z.string().default('VeritasAI/0.1 (+https://veritas.local)'),
+  // Agent utilisateur d'un navigateur récent : beaucoup de sites refusent
+  // simplement les agents « robot ». S'annoncer comme un navigateur courant est
+  // une politesse standard, pas une évasion — les protections sérieuses
+  // (DataDome) exigent le vrai navigateur de l'application de bureau.
+  FETCH_USER_AGENT: z
+    .string()
+    .default(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    ),
   RESPECT_ROBOTS: z.coerce.boolean().default(true),
 
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(60),

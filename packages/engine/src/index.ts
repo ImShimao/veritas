@@ -43,6 +43,8 @@ export { PLATFORM_PROFILES, getPlatformProfile } from './knowledge/platforms';
 export type { PlatformProfile } from './knowledge/platforms';
 export { SCAM_LEXICON, CONDITION_TERMS } from './knowledge/scam-lexicon';
 export { PRICE_REFERENCES, findReference, expectedUsedPrice } from './knowledge/price-reference';
+export { buildMarketSearchLinks, estimateCategoryPrice } from './knowledge/market-estimate';
+export type { MarketEstimate } from './knowledge/market-estimate';
 
 export {
   probeImage,

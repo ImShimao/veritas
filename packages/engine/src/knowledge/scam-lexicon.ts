@@ -123,15 +123,21 @@ export const SCAM_LEXICON: LexiconEntry[] = [
   },
   {
     criterionId: 'text.payment.fake_escrow',
+    // ATTENTION : ne jamais matcher « paiement sécurisé Leboncoin/Vinted/PayPal »,
+    // qui désigne le dispositif LÉGITIME de la plateforme (un signal positif).
+    // Le faux séquestre, lui, prétend qu'un TRANSPORTEUR ou un tiers inhabituel
+    // détient les fonds — ce qu'aucun transporteur ne fait réellement.
     patterns: [
-      /\b(service|systeme|paiement) (de )?(sequestre|escrow|securise) (de |par )?(la poste|dhl|ups|fedex|leboncoin|paypal)\b/,
-      /\bl'argent est bloque (chez|par|sur) (le transporteur|la plateforme|un notaire)\b/,
-      /\bprotection (acheteur )?(garantie|assuree) par (le transporteur|la societe)\b/,
-      /\bagence de (transport|livraison) (partenaire|agreee) qui (garde|conserve) (l'argent|le paiement)\b/,
+      /\b(service|systeme) (de )?(sequestre|escrow) (de |par )?(la poste|dhl|ups|fedex|chronopost|mondial ?relay|colissimo|tnt|dpd)\b/,
+      /\b(sequestre|escrow) (de |par )?(la poste|dhl|ups|fedex|chronopost|mondial ?relay|colissimo)\b/,
+      /\bl'argent est bloque (chez|par|sur) (le transporteur|le livreur|un notaire|la societe de (transport|livraison))\b/,
+      /\bprotection (acheteur )?(garantie|assuree) par (le transporteur|le livreur|la societe de (transport|livraison))\b/,
+      /\bagence de (transport|livraison) (partenaire|agreee)? ?qui (garde|conserve|bloque) (l'argent|le paiement|les fonds)\b/,
+      /\b(le|via le) transporteur (garde|conserve|bloque|debloque) (l'argent|le paiement|les fonds)\b/,
     ],
     baseStrength: 0.9,
     explain: (m) =>
-      `L'annonce évoque un séquestre ou une « protection » gérée par un tiers inhabituel (${quote(m)}). Les transporteurs et les plateformes ne jouent jamais ce rôle : il s'agit d'un faux service monté par l'escroc.`,
+      `L'annonce évoque un séquestre ou une « protection » gérée par un transporteur ou un tiers inhabituel (${quote(m)}). Les transporteurs ne conservent jamais les fonds d'une transaction : c'est un faux service monté par l'escroc. (Le paiement sécurisé propre à la plateforme, lui, est légitime.)`,
   },
   {
     criterionId: 'text.payment.overpayment',

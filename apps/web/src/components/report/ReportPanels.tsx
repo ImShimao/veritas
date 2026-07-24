@@ -89,65 +89,97 @@ export function PricePanel({ report }: { report: AnalysisReport }) {
 
   const currency = price.currency;
   const market = price.market;
+  const estimated = price.referenceQuality === 'estimated';
 
   return (
-    <Section title="Analyse du prix" description={market?.label}>
+    <Section
+      title="Analyse du prix"
+      description={price.referenceBasis ?? market?.label}
+      action={
+        estimated ? (
+          <span className="chip border-caution/25 bg-caution/10 text-caution">estimation</span>
+        ) : undefined
+      }
+    >
       <p className="prose-veritas text-pretty">{price.explanation}</p>
 
+      {/* Repères chiffrés : prix demandé, prix neuf, fourchette d'occasion. */}
+      {(price.newPrice || price.usedRange) && (
+        <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-accent/25 bg-accent-soft/40 px-3.5 py-3">
+            <dt className="text-2xs text-faint">Prix demandé</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
+              {formatMoney(price.observed, currency)}
+            </dd>
+          </div>
+          {price.newPrice ? (
+            <div className="rounded-xl border border-border bg-elevated/50 px-3.5 py-3">
+              <dt className="text-2xs text-faint">Prix neuf {estimated ? '~' : 'de référence'}</dt>
+              <dd className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
+                {formatMoney(price.newPrice, currency)}
+              </dd>
+            </div>
+          ) : null}
+          {price.usedRange ? (
+            <div className="rounded-xl border border-border bg-elevated/50 px-3.5 py-3">
+              <dt className="text-2xs text-faint">Occasion attendue</dt>
+              <dd className="mt-0.5 text-sm font-semibold tabular-nums text-ink">
+                {formatMoney(price.usedRange.low, currency)} –{' '}
+                {formatMoney(price.usedRange.high, currency)}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      )}
+
+      {/* Positionnement du prix demandé dans la fourchette de marché. */}
       {market && (
-        <div className="mt-5 space-y-4">
-          {/* Positionnement du prix demandé dans la fourchette de marché. */}
-          <div>
-            <div className="mb-2 flex items-baseline justify-between text-2xs text-faint">
-              <span>{formatMoney(market.p10, currency)}</span>
-              <span className="text-muted">médiane {formatMoney(market.median, currency)}</span>
-              <span>{formatMoney(market.p90, currency)}</span>
-            </div>
-            <div className="relative h-2 rounded-full bg-gradient-to-r from-danger/40 via-safe/40 to-caution/40">
-              <div
-                className="absolute -top-1 h-4 w-1 rounded-full bg-ink shadow-soft"
-                style={{
-                  left: `${positionInRange(price.observed, market.p10, market.p90)}%`,
-                }}
-                title={`Prix demandé : ${formatMoney(price.observed, currency)}`}
-              />
-            </div>
+        <div className="mt-5">
+          <div className="mb-2 flex items-baseline justify-between text-2xs text-faint">
+            <span>{formatMoney(market.p10, currency)}</span>
+            <span className="text-muted">médiane {formatMoney(market.median, currency)}</span>
+            <span>{formatMoney(market.p90, currency)}</span>
+          </div>
+          <div className="relative h-2 rounded-full bg-gradient-to-r from-danger/40 via-safe/40 to-caution/40">
+            <div
+              className="absolute -top-1 h-4 w-1 rounded-full bg-ink shadow-soft"
+              style={{ left: `${positionInRange(price.observed, market.p10, market.p90)}%` }}
+              title={`Prix demandé : ${formatMoney(price.observed, currency)}`}
+            />
+          </div>
+          {price.deviation !== undefined && (
             <p className="mt-2 text-center text-2xs text-muted">
-              Prix demandé :{' '}
+              Écart au marché :{' '}
               <strong className="font-semibold text-ink">
-                {formatMoney(price.observed, currency)}
+                {price.deviation > 0 ? '+' : ''}
+                {Math.round(price.deviation * 100)} %
               </strong>
             </p>
-          </div>
+          )}
+        </div>
+      )}
 
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: 'Médiane', value: formatMoney(market.median, currency) },
-              { label: 'Moyenne', value: formatMoney(market.mean, currency) },
-              {
-                label: 'Écart',
-                value:
-                  price.deviation !== undefined
-                    ? `${price.deviation > 0 ? '+' : ''}${Math.round(price.deviation * 100)} %`
-                    : '—',
-              },
-              {
-                label: 'Décote inexpliquée',
-                value:
-                  price.unexplainedDiscount !== undefined
-                    ? `${Math.round(price.unexplainedDiscount * 100)} %`
-                    : '—',
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border border-border bg-elevated/50 px-3 py-2.5"
+      {/* Recherches pour vérifier le prix soi-même — toujours proposées. */}
+      {price.searchLinks && price.searchLinks.length > 0 && (
+        <div className="mt-5 rounded-xl border border-border bg-elevated/40 px-3.5 py-3">
+          <p className="flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-faint">
+            <Search className="h-3 w-3" aria-hidden />
+            Comparer le prix vous-même
+          </p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+            {price.searchLinks.map((link) => (
+              <a
+                key={link.engine}
+                href={link.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1 text-[0.8125rem] font-medium text-accent hover:underline"
               >
-                <dt className="text-2xs text-faint">{item.label}</dt>
-                <dd className="mt-0.5 text-sm font-semibold tabular-nums text-ink">{item.value}</dd>
-              </div>
+                {link.engine}
+                <ExternalLink className="h-2.5 w-2.5" aria-hidden />
+              </a>
             ))}
-          </dl>
+          </div>
         </div>
       )}
     </Section>

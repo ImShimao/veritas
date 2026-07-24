@@ -65,14 +65,33 @@ export function parseFreeText(raw: string, platformHint?: Platform): FreeTextRes
 
   // ── Prix ───────────────────────────────────────────────────────────
   let price: { amount: number; currency: string } | undefined;
+  let original: number | undefined;
   const labelled = /(?:^|\n)\s*prix\s*:?\s*([^\n]+)/i.exec(text);
   if (labelled?.[1]) price = parseMoney(labelled[1]);
-  if (!price) {
-    const candidates = findAllPrices(text);
-    // Le prix de l'annonce est presque toujours le montant le plus élevé :
-    // les autres sont des accessoires, des frais de port ou un prix neuf.
-    if (candidates.length > 0) {
-      price = candidates.reduce((best, current) => (current.amount > best.amount ? current : best));
+
+  const candidates = findAllPrices(text);
+  if (candidates.length > 0) {
+    // Un montant précédé de « neuf / acheté / payé / valeur / au lieu de » est
+    // un prix d'origine, pas le prix demandé : on le met de côté comme référence.
+    const isOriginal = (amount: number): boolean => {
+      const re = new RegExp(
+        `\\b(neuf|achete|paye|valeur|au lieu de|prix d'achat|coute)\\b[^.\\n]{0,20}${amount}`,
+        'i',
+      );
+      return re.test(normalize(text));
+    };
+    const originals = candidates.filter((c) => isOriginal(c.amount));
+    const asking = candidates.filter((c) => !isOriginal(c.amount));
+
+    if (!price) {
+      // Sans étiquette « prix : », on prend le plus grand montant *demandé*
+      // (hors prix d'origine), qui est presque toujours le prix de vente.
+      const pool = asking.length > 0 ? asking : candidates;
+      price = pool.reduce((best, current) => (current.amount > best.amount ? current : best));
+    }
+    if (originals.length > 0 && price) {
+      const highestOriginal = Math.max(...originals.map((o) => o.amount));
+      if (highestOriginal > price.amount) original = highestOriginal;
     }
   }
   if (price) extractedFields.push('price');
@@ -124,7 +143,7 @@ export function parseFreeText(raw: string, platformHint?: Platform): FreeTextRes
       id: createId('lst'),
       title,
       description,
-      price,
+      price: price ? { ...price, ...(original ? { original } : {}) } : undefined,
       location,
       attributes,
       seller,

@@ -10,6 +10,7 @@ import {
 import type { Analyzer, AnalyzerContext, AnalyzerResult, SignalDraft } from './types';
 import { getProfile } from '../knowledge/domain-profiles';
 import { expectedUsedPrice, findReference } from '../knowledge/price-reference';
+import { buildMarketSearchLinks, estimateCategoryPrice } from '../knowledge/market-estimate';
 import { CONDITION_TERMS, type ConditionLevel } from '../knowledge/scam-lexicon';
 
 /** Nombre minimal de comparables pour qu'une statistique de marché soit publiée. */
@@ -52,6 +53,7 @@ export class PriceAnalyzer implements Analyzer {
         price: {
           observed: 0,
           currency: listing.price?.currency ?? 'EUR',
+          referenceQuality: 'none',
           verdict: 'unknown',
           explanation: "Aucun prix n'a pu être extrait de l'annonce.",
         },
@@ -75,6 +77,11 @@ export class PriceAnalyzer implements Analyzer {
 
     let market: PriceAssessment['market'];
     let expected: number | undefined;
+    // Qualité de la référence : exacte (modèle connu / historique) ou estimée.
+    let quality: 'exact' | 'estimated' = 'exact';
+    let newPrice: number | undefined;
+    let usedRange: { low: number; high: number } | undefined;
+    let referenceBasis: string | undefined;
 
     if (comparables.length >= MIN_COMPARABLES) {
       const values = comparables.map((c) => c.price);
@@ -89,6 +96,8 @@ export class PriceAnalyzer implements Analyzer {
         label: `${values.length} annonces comparables déjà analysées`,
       };
       expected = market.median;
+      usedRange = { low: market.p10, high: market.p90 };
+      referenceBasis = market.label;
     } else if (reference) {
       expected = expectedUsedPrice(reference.reference, {
         conditionDiscount,
@@ -106,13 +115,20 @@ export class PriceAnalyzer implements Analyzer {
         source: 'builtin',
         label: `référentiel « ${reference.reference.label} », état ${describeCondition(condition)}`,
       };
+      newPrice = reference.reference.newPrice;
+      usedRange = { low: market.p10, high: market.p90 };
+      referenceBasis = `modèle « ${reference.reference.label} »`;
     }
 
-    // Prix neuf annoncé par le vendeur : sert de garde-fou complémentaire.
+    // Prix neuf annoncé par le vendeur : garde-fou complémentaire.
     const declaredOriginal = listing.price.original;
 
     if (!expected && declaredOriginal && declaredOriginal > observed) {
       expected = declaredOriginal * (1 - conditionDiscount);
+      quality = 'estimated';
+      newPrice = declaredOriginal;
+      usedRange = { low: Math.round(expected * 0.75), high: Math.round(expected * 1.25) };
+      referenceBasis = `prix neuf déclaré (${formatMoney(declaredOriginal, currency)})`;
       market = {
         mean: stats.round(expected),
         median: stats.round(expected),
@@ -121,9 +137,38 @@ export class PriceAnalyzer implements Analyzer {
         stdDev: stats.round(expected * 0.2),
         sampleSize: 1,
         source: 'builtin',
-        label: `estimation à partir du prix neuf déclaré (${formatMoney(declaredOriginal, currency)})`,
+        label: referenceBasis,
       };
     }
+
+    // Dernier recours : estimation par catégorie. Elle garantit qu'on ne laisse
+    // jamais l'utilisateur sans repère de prix. Deux cas :
+    //   • estimation « précise » (signaux de gamme identifiés) → sert à juger ;
+    //   • simple ordre de grandeur → affiché à titre indicatif, sans verdict.
+    if (!expected) {
+      const estimate = estimateCategoryPrice(listing);
+      if (estimate) {
+        newPrice = estimate.newPrice;
+        usedRange = { low: estimate.usedLow, high: estimate.usedHigh };
+        referenceBasis = estimate.basis;
+        if (estimate.precise) {
+          expected = (estimate.usedLow + estimate.usedHigh) / 2;
+          quality = 'estimated';
+          market = {
+            mean: stats.round(expected),
+            median: stats.round(expected),
+            p10: estimate.usedLow,
+            p90: estimate.usedHigh,
+            stdDev: stats.round((estimate.usedHigh - estimate.usedLow) / 3),
+            sampleSize: 1,
+            source: 'builtin',
+            label: `estimation (${estimate.basis})`,
+          };
+        }
+      }
+    }
+
+    const searchLinks = buildMarketSearchLinks(listing);
 
     const assessment = this.buildAssessment({
       observed,
@@ -132,6 +177,11 @@ export class PriceAnalyzer implements Analyzer {
       expected,
       conditionDiscount,
       condition,
+      quality,
+      newPrice,
+      usedRange,
+      referenceBasis,
+      searchLinks,
       signals,
     });
 
@@ -157,29 +207,108 @@ export class PriceAnalyzer implements Analyzer {
     expected?: number;
     conditionDiscount: number;
     condition: ConditionLevel | 'unknown';
+    quality: 'exact' | 'estimated';
+    newPrice?: number;
+    usedRange?: { low: number; high: number };
+    referenceBasis?: string;
+    searchLinks: { engine: string; url: string }[];
     signals: SignalDraft[];
   }): PriceAssessment {
-    const { observed, currency, market, expected, conditionDiscount, condition, signals } = input;
+    const {
+      observed,
+      currency,
+      market,
+      expected,
+      conditionDiscount,
+      condition,
+      quality,
+      newPrice,
+      usedRange,
+      referenceBasis,
+      searchLinks,
+      signals,
+    } = input;
 
+    const links = searchLinks.map((l) => ({
+      kind: 'link' as const,
+      label: l.engine,
+      value: l.url,
+    }));
+
+    // Aucune référence assez fiable pour juger le prix. On donne quand même à
+    // l'utilisateur tout ce qu'on peut : un ordre de grandeur si on en a un, et
+    // des recherches pré-remplies pour vérifier lui-même en un clic.
     if (!market || !expected || expected <= 0) {
+      const ballpark =
+        newPrice || usedRange
+          ? ` À titre indicatif${referenceBasis ? ` (${referenceBasis})` : ''} : ${[
+              newPrice ? `neuf ~${formatMoney(newPrice, currency)}` : null,
+              usedRange
+                ? `occasion ${formatMoney(usedRange.low, currency)}–${formatMoney(usedRange.high, currency)}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(', ')}. C'est un simple ordre de grandeur : confirmez avec les recherches.`
+          : '';
+
       signals.push({
         criterionId: 'price.reference.unavailable',
         strength: 1,
-        explanation:
-          "Aucune référence de marché n'a pu être établie pour ce bien : le référentiel embarqué ne le couvre pas et votre historique ne contient pas encore assez d'annonces comparables. La cohérence tarifaire n'a donc pas pu être vérifiée automatiquement — comparez manuellement avec des annonces similaires.",
-        evidence: [{ kind: 'comparison', label: 'Référence de marché', value: 'indisponible' }],
+        explanation: `Je n'ai pas de référence de prix assez précise pour juger ce modèle.${ballpark} Pour vérifier vous-même : comparez avec des annonces similaires et le prix neuf grâce aux recherches ci-jointes, ouvrables en un clic.`,
+        evidence: [
+          ...(newPrice
+            ? [
+                {
+                  kind: 'comparison' as const,
+                  label: 'Prix neuf (ordre de grandeur)',
+                  value: formatMoney(newPrice, currency),
+                },
+              ]
+            : []),
+          ...(usedRange
+            ? [
+                {
+                  kind: 'comparison' as const,
+                  label: 'Occasion (ordre de grandeur)',
+                  value: `${formatMoney(usedRange.low, currency)} – ${formatMoney(usedRange.high, currency)}`,
+                },
+              ]
+            : []),
+          ...(links.length > 0
+            ? links
+            : [{ kind: 'comparison' as const, label: 'Référence', value: 'indisponible' }]),
+        ],
       });
       return {
         observed,
         currency,
+        newPrice,
+        usedRange,
+        referenceBasis,
+        referenceQuality: newPrice || usedRange ? 'estimated' : 'none',
+        searchLinks,
         verdict: 'unknown',
-        explanation:
-          "La cohérence du prix n'a pas pu être évaluée faute de référence de marché pour ce type de bien.",
+        explanation: `Prix demandé : ${formatMoney(observed, currency)}.${ballpark || " Je n'ai pas de référence de marché pour ce modèle — utilisez les recherches fournies pour le comparer."}`,
       };
     }
 
     const deviation = (observed - expected) / expected;
     const zScore = market.stdDev > 0 ? (observed - market.median) / market.stdDev : 0;
+    // Une estimation par catégorie est un ordre de grandeur : on atténue la
+    // force des signaux qui en découlent, pour ne pas crier « arnaque » sur une
+    // approximation. Le prix reste affiché, mais avec la prudence qui s'impose.
+    const soft = quality === 'estimated' ? 0.5 : 1;
+    const estimatePrefix = quality === 'estimated' ? "D'après une estimation approximative, " : '';
+
+    // Repères chiffrés, toujours joints — c'est ce que l'utilisateur veut voir.
+    const refSummary = [
+      newPrice ? `neuf ~${formatMoney(newPrice, currency)}` : null,
+      usedRange
+        ? `occasion attendue ${formatMoney(usedRange.low, currency)}–${formatMoney(usedRange.high, currency)}`
+        : `valeur attendue ${formatMoney(expected, currency)}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     const evidence = [
       {
@@ -187,79 +316,71 @@ export class PriceAnalyzer implements Analyzer {
         label: 'Prix demandé',
         value: formatMoney(observed, currency),
       },
-      {
-        kind: 'comparison' as const,
-        label: 'Valeur attendue',
-        value: formatMoney(expected, currency),
-      },
-      { kind: 'comparison' as const, label: 'Référence', value: market.label },
+      ...(newPrice
+        ? [
+            {
+              kind: 'comparison' as const,
+              label: 'Prix neuf de référence',
+              value: formatMoney(newPrice, currency),
+            },
+          ]
+        : []),
+      ...(usedRange
+        ? [
+            {
+              kind: 'comparison' as const,
+              label: "Fourchette d'occasion attendue",
+              value: `${formatMoney(usedRange.low, currency)} – ${formatMoney(usedRange.high, currency)}`,
+            },
+          ]
+        : []),
+      { kind: 'comparison' as const, label: 'Base', value: referenceBasis ?? market.label },
+      ...links,
     ];
 
     let verdict: PriceAssessment['verdict'];
+    let criterionId: string;
+    let strength: number;
     let explanation: string;
 
     if (deviation <= -0.45) {
       verdict = 'suspicious_low';
-      explanation = `Le prix demandé est ${formatPercent(Math.abs(deviation))} sous la valeur attendue de ${formatMoney(expected, currency)} (${market.label}). Une décote de cette ampleur ne s'explique pas par l'état déclaré : c'est l'appât classique destiné à provoquer un contact rapide et un paiement avant vérification.`;
-      signals.push({
-        // Franchir le seuil est déjà l'essentiel du signal : la force part donc
-        // haut et l'ampleur de l'écart ne fait que la compléter.
-        criterionId: 'price.deviation.extreme_low',
-        strength: Math.min(1, 0.6 + 0.4 * ramp(Math.abs(deviation), 0.45, 0.8)),
-        explanation,
-        evidence,
-      });
+      criterionId = 'price.deviation.extreme_low';
+      strength = Math.min(1, 0.6 + 0.4 * ramp(Math.abs(deviation), 0.45, 0.8));
+      explanation = `${estimatePrefix}le prix de ${formatMoney(observed, currency)} est ${formatPercent(Math.abs(deviation))} sous la valeur attendue (${refSummary}). Une décote de cette ampleur ne s'explique pas par l'état déclaré : c'est l'appât classique destiné à provoquer un paiement avant vérification.`;
     } else if (deviation <= -0.25) {
       verdict = 'below_market';
-      explanation = `Le prix est ${formatPercent(Math.abs(deviation))} sous la valeur attendue de ${formatMoney(expected, currency)} (${market.label}). Une telle remise peut être légitime — vente rapide, défaut non photographié — mais elle doit être expliquée par le vendeur avant tout engagement.`;
-      signals.push({
-        criterionId: 'price.deviation.suspicious_low',
-        strength: 0.5 + 0.5 * ramp(Math.abs(deviation), 0.25, 0.45),
-        explanation,
-        evidence,
-      });
+      criterionId = 'price.deviation.suspicious_low';
+      strength = 0.5 + 0.5 * ramp(Math.abs(deviation), 0.25, 0.45);
+      explanation = `${estimatePrefix}le prix de ${formatMoney(observed, currency)} est ${formatPercent(Math.abs(deviation))} sous la valeur attendue (${refSummary}). Une telle remise peut être légitime — vente rapide, défaut non photographié — mais elle doit être expliquée par le vendeur.`;
     } else if (deviation <= -0.12) {
       verdict = 'below_market';
-      explanation = `Le prix est ${formatPercent(Math.abs(deviation))} sous la valeur attendue de ${formatMoney(expected, currency)}. C'est une bonne affaire plausible, dans la fourchette de négociation habituelle entre particuliers.`;
-      signals.push({
-        criterionId: 'price.deviation.below_market',
-        strength: 0.4 + 0.6 * ramp(Math.abs(deviation), 0.12, 0.25),
-        explanation,
-        evidence,
-      });
+      criterionId = 'price.deviation.below_market';
+      strength = 0.4 + 0.6 * ramp(Math.abs(deviation), 0.12, 0.25);
+      explanation = `Le prix de ${formatMoney(observed, currency)} est ${formatPercent(Math.abs(deviation))} sous la valeur attendue (${refSummary}). Bonne affaire plausible, dans la fourchette de négociation habituelle entre particuliers.`;
     } else if (deviation >= 0.25) {
       verdict = 'above_market';
-      explanation = `Le prix dépasse de ${formatPercent(deviation)} la valeur attendue de ${formatMoney(expected, currency)}. Ce n'est pas un signal de fraude, mais vous surpayez probablement : la négociation est justifiée.`;
-      signals.push({
-        criterionId: 'price.deviation.above_market',
-        strength: ramp(deviation, 0.25, 0.6),
-        explanation,
-        evidence,
-      });
+      criterionId = 'price.deviation.above_market';
+      strength = ramp(deviation, 0.25, 0.6);
+      explanation = `Le prix de ${formatMoney(observed, currency)} dépasse de ${formatPercent(deviation)} la valeur attendue (${refSummary}). Ce n'est pas un signal de fraude, mais vous surpayez probablement : la négociation est justifiée.`;
     } else {
       verdict = 'fair';
-      explanation = `Le prix demandé de ${formatMoney(observed, currency)} correspond à la valeur attendue de ${formatMoney(expected, currency)} (${market.label}), à ${formatPercent(Math.abs(deviation))} près. Un prix cohérent est le premier indicateur d'une vente sincère : les annonces frauduleuses reposent presque toujours sur une remise anormale.`;
-      signals.push({
-        criterionId: 'price.deviation.fair',
-        strength: 1 - ramp(Math.abs(deviation), 0, 0.25),
-        explanation,
-        evidence,
-      });
+      criterionId = 'price.deviation.fair';
+      strength = 1 - ramp(Math.abs(deviation), 0, 0.25);
+      explanation = `Le prix de ${formatMoney(observed, currency)} est cohérent avec le marché (${refSummary}). Un prix aligné est le premier indicateur d'une vente sincère : les annonces frauduleuses reposent presque toujours sur une remise anormale.`;
     }
+
+    signals.push({ criterionId, strength: strength * soft, explanation, evidence });
 
     // Part de la décote qui reste inexpliquée une fois l'état pris en compte.
     const unexplained = Math.max(0, -deviation - conditionDiscount * 0.35);
     if (unexplained > 0.2 && deviation < -0.25) {
       signals.push({
         criterionId: 'price.discount.unexplained',
-        strength: ramp(unexplained, 0.2, 0.5),
+        strength: ramp(unexplained, 0.2, 0.5) * soft,
         explanation: `Même en tenant compte de l'état déclaré (${describeCondition(condition)}), ${formatPercent(unexplained)} de la remise reste sans explication. Demandez au vendeur la raison précise de ce prix : une réponse évasive est en soi une réponse.`,
         evidence: [
-          {
-            kind: 'comparison',
-            label: 'Décote inexpliquée',
-            value: formatPercent(unexplained),
-          },
+          { kind: 'comparison', label: 'Décote inexpliquée', value: formatPercent(unexplained) },
         ],
       });
     }
@@ -272,6 +393,11 @@ export class PriceAnalyzer implements Analyzer {
       zScore: stats.round(zScore, 2),
       expectedDiscount: stats.round(conditionDiscount, 3),
       unexplainedDiscount: stats.round(unexplained, 3),
+      newPrice,
+      usedRange,
+      referenceBasis,
+      referenceQuality: quality,
+      searchLinks,
       verdict,
       explanation,
     };

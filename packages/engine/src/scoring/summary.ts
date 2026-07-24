@@ -78,6 +78,14 @@ export function buildSummary(input: SummaryInput): string {
         `Le prix est ${gap.toFixed(0)} % sous la référence de marché : une bonne affaire plausible, à condition que le vendeur puisse l'expliquer.`,
       );
     }
+  } else if (price && (price.newPrice || price.usedRange)) {
+    // Pas de verdict tarifaire fiable, mais on donne un repère chiffré.
+    const range = price.usedRange
+      ? `${formatMoney(price.usedRange.low, price.currency)}–${formatMoney(price.usedRange.high, price.currency)}`
+      : undefined;
+    sentences.push(
+      `Repère de prix (approximatif) : ${price.newPrice ? `neuf autour de ${formatMoney(price.newPrice, price.currency)}` : ''}${price.newPrice && range ? ', ' : ''}${range ? `occasion ${range}` : ''}. À confirmer avec les recherches de comparaison fournies.`,
+    );
   }
 
   // 4. Les points positifs, quand ils existent et que le verdict n'est pas catastrophique.

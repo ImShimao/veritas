@@ -6,7 +6,7 @@
  * constats, recommandations, questions à poser, et un assistant conversationnel.
  * Tout se passe dans le navigateur, rien ne sort de la machine.
  */
-import type { AnalysisReport, ChatMessage, Finding } from '@veritas/core';
+import { formatMoney, type AnalysisReport, type ChatMessage, type Finding } from '@veritas/core';
 import { renderMarkdown, sendMessage, VERDICT_COLOR, verdictLabel, escapeHtml } from './shared';
 import type { UpdateState } from './version-check';
 
@@ -94,6 +94,7 @@ function renderReport(report: AnalysisReport): void {
 
   $('report-summary').textContent = report.summary;
 
+  renderPrice(report);
   renderFindings(report.findings);
   renderRecommendations(report);
   renderQuestions(report.questionsForSeller);
@@ -101,6 +102,45 @@ function renderReport(report: AnalysisReport): void {
   setupChat(report);
 
   $('report').scrollTop = 0;
+}
+
+/** Bloc « prix » : repères chiffrés (neuf / occasion) et recherches de comparaison. */
+function renderPrice(report: AnalysisReport): void {
+  const el = $('price');
+  const price = report.price;
+  if (!price || (!price.newPrice && !price.usedRange && !price.searchLinks?.length)) {
+    el.classList.add('hidden');
+    return;
+  }
+  el.classList.remove('hidden');
+  const c = price.currency;
+  const estimated = price.referenceQuality === 'estimated';
+
+  const tiles: string[] = [
+    `<div class="ptile accent"><span>Prix demandé</span><b>${escapeHtml(formatMoney(price.observed, c))}</b></div>`,
+  ];
+  if (price.newPrice) {
+    tiles.push(
+      `<div class="ptile"><span>Neuf ${estimated ? '~' : 'réf.'}</span><b>${escapeHtml(formatMoney(price.newPrice, c))}</b></div>`,
+    );
+  }
+  if (price.usedRange) {
+    tiles.push(
+      `<div class="ptile"><span>Occasion</span><b>${escapeHtml(formatMoney(price.usedRange.low, c))}–${escapeHtml(formatMoney(price.usedRange.high, c))}</b></div>`,
+    );
+  }
+
+  const links = (price.searchLinks ?? [])
+    .map(
+      (l) =>
+        `<a href="${escapeHtml(l.url)}" target="_blank" rel="noreferrer">${escapeHtml(l.engine)}</a>`,
+    )
+    .join('');
+
+  el.innerHTML =
+    `<div class="price-head"><h3 class="section-title">Prix</h3>${estimated ? '<span class="est-badge">estimation</span>' : ''}</div>` +
+    `<div class="ptiles">${tiles.join('')}</div>` +
+    (links ? `<div class="price-links"><span>Comparer :</span>${links}</div>` : '');
 }
 
 function renderFindings(findings: Finding[]): void {

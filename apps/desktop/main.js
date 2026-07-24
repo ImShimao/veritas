@@ -116,10 +116,72 @@ async function startServer() {
   // Import dynamique du serveur ESM pré-bundlé depuis ce module CommonJS.
   const { buildServer } = await import(pathToFileURL(serverEntry).href);
   const application = await buildServer();
+
+  // Récupération par vrai navigateur : c'est l'atout de l'application de bureau.
+  // Là où le serveur seul est bloqué par les protections anti-robot
+  // (Leboncoin, etc.), une fenêtre Chromium cachée charge réellement la page,
+  // sous le moteur du navigateur, et en extrait le HTML.
+  application.services.analyses.setPageFetcher(fetchPageViaBrowser);
+
   await application.app.listen({ port, host: '127.0.0.1' });
   serverHandle = application;
 
   return port;
+}
+
+/** Nombre de récupérations navigateur simultanées, pour ne pas saturer la machine. */
+let browserFetchesInFlight = 0;
+
+/**
+ * Charge une URL dans une fenêtre Chromium cachée et renvoie son HTML.
+ *
+ * C'est un vrai navigateur qui rend la page (JavaScript exécuté, cookies,
+ * défis anti-bot résolus). Rien n'est contourné frauduleusement : on ne fait
+ * que charger, dans le navigateur intégré, une page que l'utilisateur a lui-même
+ * demandé d'analyser.
+ */
+async function fetchPageViaBrowser(url) {
+  if (browserFetchesInFlight >= 2) {
+    // Trop de récupérations en cours : on laisse le repli HTTP s'en charger.
+    return { html: '', finalUrl: url, status: 503, blocked: false };
+  }
+  browserFetchesInFlight += 1;
+
+  const win = new BrowserWindow({
+    show: false,
+    width: 1280,
+    height: 900,
+    webPreferences: { images: false, offscreen: true, sandbox: true, javascript: true },
+  });
+
+  try {
+    const loaded = win.loadURL(url);
+    // Délai de garde : certaines pages ne déclenchent jamais « did-finish-load ».
+    await Promise.race([
+      loaded.catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 15000)),
+    ]);
+
+    // Laisse aux défis anti-bot (DataDome…) le temps de se résoudre.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    const html = await win.webContents.executeJavaScript(
+      'document.documentElement ? document.documentElement.outerHTML : ""',
+      true,
+    );
+    const finalUrl = win.webContents.getURL() || url;
+
+    // Détection sommaire d'un mur anti-robot toujours présent.
+    const blocked =
+      typeof html === 'string' &&
+      html.length < 40000 &&
+      /datadome|captcha|verifying you are human|cf-browser-verification|access denied/i.test(html);
+
+    return { html: typeof html === 'string' ? html : '', finalUrl, status: 200, blocked };
+  } finally {
+    win.destroy();
+    browserFetchesInFlight -= 1;
+  }
 }
 
 function createWindow(port) {

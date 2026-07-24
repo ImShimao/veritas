@@ -259,6 +259,70 @@ main {
   justify-content: space-between;
 }
 
+/* Bloc prix */
+.price {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.price-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.est-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--caution);
+  background: color-mix(in srgb, var(--caution) 14%, transparent);
+}
+.ptiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.ptile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.ptile.accent {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.ptile span {
+  font-size: 9.5px;
+  color: var(--faint);
+}
+.ptile b {
+  font-size: 13px;
+  font-weight: 700;
+}
+.price-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.price-links span {
+  color: var(--faint);
+}
+.price-links a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.price-links a:hover {
+  text-decoration: underline;
+}
+
 .findings {
   display: flex;
   flex-direction: column;
