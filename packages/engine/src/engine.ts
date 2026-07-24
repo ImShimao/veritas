@@ -206,7 +206,10 @@ export class VeritasEngine {
       }),
       criteriaEvaluated: aggregation.criteriaEvaluated,
       timings: { totalMs: Date.now() - startedAt, perAnalyzer },
-      warnings,
+      // Dédoublonnage : une même limite (ex. « module d'analyse d'image non
+      // installé ») est signalée par chaque image ; l'utilisateur n'a besoin de
+      // la lire qu'une fois. On conserve l'ordre de première apparition.
+      warnings: [...new Set(warnings)],
     };
 
     this.logger?.('analysis_completed', {

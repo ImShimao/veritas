@@ -51,6 +51,15 @@ export const SELLER_CRITERIA = defineCriteria('seller', [
     severity: 'low',
   },
   {
+    id: 'seller.reputation.unknown',
+    label: 'Réputation non récupérée',
+    rationale:
+      "Les avis du vendeur n'ont pas pu être lus depuis cette source : leur absence dans les données extraites ne signifie pas que le vendeur n'en a pas. On ne sanctionne pas une donnée manquante.",
+    severity: 'info',
+    polarity: 'neutral',
+    weight: 0,
+  },
+  {
     id: 'seller.reputation.strong',
     label: 'Réputation solide',
     rationale:

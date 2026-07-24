@@ -96,41 +96,45 @@ export class SellerAnalyzer implements Analyzer {
     }
 
     // ── Réputation ───────────────────────────────────────────────────
-    const ratingCount = seller.ratingCount ?? 0;
+    // Distinction essentielle : « avis non récupérés » (donnée absente) n'est
+    // PAS « aucun avis » (zéro constaté). Beaucoup de sources — Leboncoin en
+    // tête — n'exposent pas la note dans les données extraites ; l'afficher
+    // comme « aucun avis » fabriquerait un risque à partir d'un trou de
+    // collecte. Conformément à l'en-tête, l'absence d'information reste neutre.
     const ratingAverage = seller.ratingAverage;
+    const ratingCount = seller.ratingCount;
+    const hasRating = ratingAverage !== undefined && (ratingCount ?? 0) > 0;
 
-    if (ratingAverage !== undefined && ratingCount > 0) {
+    if (hasRating) {
       available += 1;
+      const count = ratingCount as number;
       // Lissage : la note affichée est ramenée vers 4,2 tant que l'échantillon est faible.
-      const smoothed = stats.bayesianAverage(ratingAverage * ratingCount, ratingCount, 4.2, 8);
+      const smoothed = stats.bayesianAverage(ratingAverage * count, count, 4.2, 8);
       const scale = ratingAverage <= 5 ? 5 : 100;
       const normalizedScore = (smoothed / scale) * 5;
 
-      if (ratingCount < 3) {
+      if (count < 3) {
         signals.push({
           criterionId: 'seller.reputation.few_reviews',
           strength: 0.7,
-          explanation: `Le vendeur n'a que ${ratingCount} avis. Une note calculée sur si peu de transactions n'a aucune valeur statistique : elle ne prouve ni la fiabilité ni son contraire.`,
-          evidence: [{ kind: 'metadata', label: "Nombre d'avis", value: String(ratingCount) }],
+          explanation: `Le vendeur n'a que ${count} avis. Une note calculée sur si peu de transactions n'a aucune valeur statistique : elle ne prouve ni la fiabilité ni son contraire.`,
+          evidence: [{ kind: 'metadata', label: "Nombre d'avis", value: String(count) }],
         });
-      } else if (normalizedScore >= 4.5 && ratingCount >= 20) {
+      } else if (normalizedScore >= 4.5 && count >= 20) {
         signals.push({
           criterionId: 'seller.reputation.strong',
-          strength: Math.min(
-            1,
-            ramp(ratingCount, 20, 150) * 0.5 + ramp(normalizedScore, 4.3, 5) * 0.5,
-          ),
-          explanation: `Le vendeur affiche ${ratingAverage.toFixed(1)}/${scale} sur ${ratingCount} avis. Un tel historique est coûteux à fabriquer et constitue le signal de confiance le plus robuste dont on dispose sur une plateforme.`,
+          strength: Math.min(1, ramp(count, 20, 150) * 0.5 + ramp(normalizedScore, 4.3, 5) * 0.5),
+          explanation: `Le vendeur affiche ${ratingAverage.toFixed(1)}/${scale} sur ${count} avis. Un tel historique est coûteux à fabriquer et constitue le signal de confiance le plus robuste dont on dispose sur une plateforme.`,
           evidence: [
             { kind: 'metadata', label: 'Note', value: `${ratingAverage.toFixed(1)}/${scale}` },
-            { kind: 'metadata', label: 'Volume', value: `${ratingCount} avis` },
+            { kind: 'metadata', label: 'Volume', value: `${count} avis` },
           ],
         });
-      } else if (normalizedScore < 3.8 && ratingCount >= 5) {
+      } else if (normalizedScore < 3.8 && count >= 5) {
         signals.push({
           criterionId: 'seller.reputation.poor',
           strength: ramp(3.8 - normalizedScore, 0.1, 1.5),
-          explanation: `La note du vendeur est de ${ratingAverage.toFixed(1)}/${scale} sur ${ratingCount} avis. Sur un volume suffisant, une note basse traduit des litiges récurrents : lisez les avis négatifs avant toute décision.`,
+          explanation: `La note du vendeur est de ${ratingAverage.toFixed(1)}/${scale} sur ${count} avis. Sur un volume suffisant, une note basse traduit des litiges récurrents : lisez les avis négatifs avant toute décision.`,
           evidence: [
             { kind: 'metadata', label: 'Note', value: `${ratingAverage.toFixed(1)}/${scale}` },
           ],
@@ -138,27 +142,38 @@ export class SellerAnalyzer implements Analyzer {
       }
 
       // Note parfaite sur un très gros volume : profil statistiquement improbable.
-      if (ratingAverage >= scale * 0.995 && ratingCount > 80) {
+      if (ratingAverage >= scale * 0.995 && count > 80) {
         signals.push({
           criterionId: 'seller.reputation.suspicious_pattern',
           strength: 0.5,
-          explanation: `Une note parfaite maintenue sur ${ratingCount} transactions est statistiquement rare : même les excellents vendeurs accumulent quelques avis mitigés. Vérifiez que les avis ne sont pas tous récents ni rédigés dans des termes très similaires.`,
+          explanation: `Une note parfaite maintenue sur ${count} transactions est statistiquement rare : même les excellents vendeurs accumulent quelques avis mitigés. Vérifiez que les avis ne sont pas tous récents ni rédigés dans des termes très similaires.`,
           evidence: [
             {
               kind: 'metadata',
               label: 'Note parfaite',
-              value: `${ratingAverage}/${scale} sur ${ratingCount} avis`,
+              value: `${ratingAverage}/${scale} sur ${count} avis`,
             },
           ],
         });
       }
-    } else {
+    } else if (ratingCount === 0 && !seller.proAccount) {
+      // Zéro avis explicitement constaté sur un compte particulier : caution légitime.
+      available += 1;
       signals.push({
         criterionId: 'seller.reputation.no_reviews',
         strength: 0.8,
         explanation:
           "Le vendeur n'a aucun avis. Rien ne permet alors de distinguer un nouvel utilisateur légitime d'un compte créé pour une fraude unique. Privilégiez la remise en main propre avec paiement sur place.",
         evidence: [{ kind: 'metadata', label: 'Avis', value: 'aucun' }],
+      });
+    } else {
+      // Note et nombre d'avis non récupérés : incertitude, jamais un risque.
+      signals.push({
+        criterionId: 'seller.reputation.unknown',
+        strength: 1,
+        explanation:
+          "Les avis du vendeur n'ont pas pu être récupérés depuis cette source. Ce n'est pas un mauvais signe : beaucoup de plateformes n'exposent pas la note dans les données lues. Ouvrez la fiche du vendeur pour voir sa note et son nombre d'avis avant de vous engager.",
+        evidence: [{ kind: 'metadata', label: 'Avis', value: 'non récupérés' }],
       });
     }
 
