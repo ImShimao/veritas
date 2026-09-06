@@ -32,8 +32,45 @@ const FIELD_PATTERNS: { key: string; patterns: RegExp[] }[] = [
   { key: 'Vendeur', patterns: [/^(?:vendeur|vendu par)\s*:?\s*(.+)$/im] },
 ];
 
-/** Codes postaux et villes françaises fréquemment présents en fin d'annonce. */
-const LOCATION_PATTERN = /\b(\d{5})\s+([A-ZÀ-Ý][\wÀ-ÿ'-]+(?:[ -][A-ZÀ-Ý][\wÀ-ÿ'-]+)*)/;
+/**
+ * Reconnaissance de la localisation dans une annonce collée.
+ *
+ * Deux ordres coexistent en pratique — « 92110 Clichy » et « Clichy 92110 » —
+ * et il faut gérer les deux : n'en gérer qu'un affichait à tort « localisation
+ * absente » sur des annonces qui la précisaient. Le code postal est validé
+ * (01000–98999) pour éviter de prendre un prix ou une référence à cinq chiffres
+ * pour une adresse, et la ville est bornée à quelques mots pour ne pas happer
+ * une phrase entière.
+ */
+const FRENCH_POSTAL = String.raw`(?:0[1-9]|[1-8]\d|9[0-8])\d{3}`;
+const CITY = String.raw`[A-ZÀ-Ý][\wÀ-ÿ'-]+(?:[ -][A-ZÀ-Ý][\wÀ-ÿ'-]+){0,3}`;
+/** « 92110 Clichy » — code postal puis ville. */
+const LOCATION_POSTAL_CITY = new RegExp(String.raw`\b(${FRENCH_POSTAL})\s+(${CITY})`);
+/** « Clichy 92110 » — ville puis code postal. */
+const LOCATION_CITY_POSTAL = new RegExp(String.raw`(${CITY})\s+(${FRENCH_POSTAL})\b`);
+
+/** Extrait une localisation française, quel que soit l'ordre code postal / ville. */
+function parseLocation(text: string): Listing['location'] | undefined {
+  const postalFirst = LOCATION_POSTAL_CITY.exec(text);
+  if (postalFirst) {
+    return {
+      raw: `${postalFirst[1]} ${postalFirst[2]}`,
+      postalCode: postalFirst[1],
+      city: postalFirst[2],
+      country: 'France',
+    };
+  }
+  const cityFirst = LOCATION_CITY_POSTAL.exec(text);
+  if (cityFirst) {
+    return {
+      raw: `${cityFirst[1]} ${cityFirst[2]}`,
+      postalCode: cityFirst[2],
+      city: cityFirst[1],
+      country: 'France',
+    };
+  }
+  return undefined;
+}
 
 export interface FreeTextResult {
   listing: Partial<Listing>;
@@ -113,18 +150,15 @@ export function parseFreeText(raw: string, platformHint?: Platform): FreeTextRes
   // ── Localisation ───────────────────────────────────────────────────
   let location: Listing['location'];
   const explicit = attributes.Localisation;
-  const postal = LOCATION_PATTERN.exec(text);
   if (explicit) {
     location = { raw: explicit };
     extractedFields.push('location');
-  } else if (postal) {
-    location = {
-      raw: `${postal[1]} ${postal[2]}`,
-      postalCode: postal[1],
-      city: postal[2],
-      country: 'France',
-    };
-    extractedFields.push('location');
+  } else {
+    const parsed = parseLocation(text);
+    if (parsed) {
+      location = parsed;
+      extractedFields.push('location');
+    }
   }
 
   // ── Vendeur ────────────────────────────────────────────────────────

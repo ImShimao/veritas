@@ -61,6 +61,25 @@ Disponible à 69003 Lyon`;
     expect(extractedFields).toContain('price');
   });
 
+  it('reconnaît la localisation « ville puis code postal »', () => {
+    // Format très courant que l'ancien analyseur ratait (→ « localisation absente »).
+    const { listing } = parseFreeText('Vélo gravel à vendre. Clichy 92110. Bon état.');
+    expect(listing.location?.postalCode).toBe('92110');
+    expect(listing.location?.city).toBe('Clichy');
+  });
+
+  it('reconnaît toujours « code postal puis ville »', () => {
+    const { listing } = parseFreeText('Disponible à 69003 Lyon');
+    expect(listing.location?.postalCode).toBe('69003');
+    expect(listing.location?.city).toBe('Lyon');
+  });
+
+  it('ne prend pas un nombre à cinq chiffres quelconque pour une adresse', () => {
+    // « ref 45219 » : pas de ville capitalisée adjacente → aucune localisation.
+    const { listing } = parseFreeText('Vends vélo, référence 45219, très bon état.');
+    expect(listing.location).toBeUndefined();
+  });
+
   it('retient le montant le plus élevé comme prix probable', () => {
     // Le prix de vente est presque toujours supérieur aux frais de port.
     const { listing } = parseFreeText('Vends console. Frais de port 12€. Prix 250€.');
