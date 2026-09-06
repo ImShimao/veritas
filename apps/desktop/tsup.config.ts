@@ -8,9 +8,11 @@ import { defineConfig } from 'tsup';
  * alors qu'un fichier à embarquer, sans arborescence `node_modules` à traîner.
  *
  * Seul `sharp` reste externe : c'est un module natif (`.node`) qui ne peut pas
- * être bundlé. Il est de toute façon optionnel — le moteur bascule en mode
- * dégradé s'il est absent, ce qui est le cas dans l'application empaquetée. La
- * forensique d'image fine reste disponible en mode développement (`npm run dev`).
+ * être bundlé. Il n'est pas pour autant absent de l'application empaquetée :
+ * `prepare.mjs` copie sharp et son binaire natif dans `build/vendor/node_modules`,
+ * embarqué comme ressource à côté de ce bundle, si bien que `require('sharp')`
+ * s'y résout à l'exécution. La forensique d'image fine fonctionne donc aussi en
+ * production ; le mode dégradé ne subsiste que si le binaire natif manque.
  */
 export default defineConfig({
   entry: { server: '../api/src/embed.ts' },
