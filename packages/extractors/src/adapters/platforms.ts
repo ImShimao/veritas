@@ -39,6 +39,13 @@ export const PLATFORM_SPECS: PlatformSpec[] = [
       description: ['[data-qa-id="adview_description_container"]', '[data-test-id="description"]'],
       location: ['[data-qa-id="adview_location_informations"]'],
       sellerName: ['[data-qa-id="adview_profile_name"]', '[data-test-id="profile-name"]'],
+      // La note vendeur n'est ni dans le blob `__NEXT_DATA__` ni dans une balise
+      // stable : elle n'existe que dans l'aria-label du widget de note, rendu
+      // côté client. « Utilisateur noté 4,9 sur cinq, sur la base de 11 avis ».
+      sellerRatingAria: {
+        selector: '[aria-label*="sur la base de"]',
+        pattern: /not[ée]\s+([\d.,]+)\s+sur\s+cinq[^]*?(\d+)\s*avis/i,
+      },
       images: [
         { selectors: ['[data-qa-id="adview_gallery"] img', 'picture img'], attribute: 'src' },
       ],

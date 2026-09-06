@@ -37,6 +37,13 @@ export interface PlatformSpec {
     sellerName?: string[];
     sellerRating?: string[];
     sellerReviews?: string[];
+    /**
+     * Note vendeur portée par un attribut `aria-label` plutôt que par du texte
+     * (cas de Leboncoin, dont le widget de note n'a ni classe ni identifiant
+     * stable). Le motif doit capturer, dans cet ordre, la note puis le nombre
+     * d'avis — p. ex. « Utilisateur noté 4,9 sur cinq, sur la base de 11 avis ».
+     */
+    sellerRatingAria?: { selector: string; pattern: RegExp };
     sellerMemberSince?: string[];
     attributes?: { container: string; key: string; value: string };
   };
@@ -100,10 +107,24 @@ export function createAdapter(spec: PlatformSpec): ExtractorAdapter {
       }
 
       const sellerName = pick(selectors.sellerName, document) ?? structured.seller?.displayName;
-      const ratingAverage =
+      let ratingAverage =
         parseNumber(pick(selectors.sellerRating, document)) ?? structured.seller?.ratingAverage;
-      const ratingCount =
+      let ratingCount =
         parseNumber(pick(selectors.sellerReviews, document)) ?? structured.seller?.ratingCount;
+
+      // Repli : note vendeur logée dans un aria-label (Leboncoin).
+      if (
+        (ratingAverage === undefined || ratingCount === undefined) &&
+        selectors.sellerRatingAria
+      ) {
+        const aria = document.attr([selectors.sellerRatingAria.selector], 'aria-label');
+        const match = aria ? selectors.sellerRatingAria.pattern.exec(aria) : null;
+        if (match) {
+          ratingAverage ??= parseNumber(match[1]);
+          ratingCount ??= parseNumber(match[2]);
+        }
+      }
+
       const memberSince = pick(selectors.sellerMemberSince, document);
 
       const publishedRaw = pick(selectors.publishedAt, document);
@@ -178,6 +199,17 @@ function mergePreferring(
   }
   if (preferred.attributes || fallback.attributes) {
     merged.attributes = { ...fallback.attributes, ...preferred.attributes };
+  }
+  // Le vendeur se fusionne champ par champ : le blob embarqué fait autorité sur
+  // l'identité (nom, statut pro, id), mais ne porte pas la note — laquelle vient
+  // des sélecteurs ou de l'aria-label. Un remplacement en bloc effacerait la note.
+  if (preferred.seller || fallback.seller) {
+    const cleaned = Object.fromEntries(
+      Object.entries(preferred.seller ?? {}).filter(
+        ([, value]) => value !== undefined && value !== null && value !== '',
+      ),
+    );
+    merged.seller = { ...fallback.seller, ...cleaned } as Listing['seller'];
   }
   return merged;
 }

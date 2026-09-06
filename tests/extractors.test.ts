@@ -128,3 +128,47 @@ describe('extraction depuis données structurées', () => {
     await expect(extractListing({})).rejects.toThrow();
   });
 });
+
+describe('note vendeur Leboncoin (aria-label)', () => {
+  // La note n'est ni dans le blob __NEXT_DATA__ ni dans une balise stable :
+  // Leboncoin ne l'expose que via l'aria-label du widget de note.
+  const leboncoinHtml = (ariaWidget: string) => `<!doctype html><html><head>
+    <script id="__NEXT_DATA__" type="application/json">
+    {"props":{"pageProps":{"ad":{
+      "subject":"Specialized Diverge Comp Carbon",
+      "body":"Gravel carbone taille 56, révisé en boutique.",
+      "price":[3199],
+      "owner":{"name":"VELEOS","type":"pro","user_id":"u-42"}
+    }}}}
+    </script>
+    </head><body>
+      <h1 data-qa-id="adview_title">Specialized Diverge Comp Carbon</h1>
+      <span data-qa-id="adview_price">3 199 €</span>
+      <div data-qa-id="adview_profile_name">VELEOS</div>
+      ${ariaWidget}
+    </body></html>`;
+
+  it('extrait la note et le nombre d’avis, et préserve le vendeur pro du blob', async () => {
+    const html = leboncoinHtml(
+      '<span aria-label="Utilisateur noté 4,9 sur cinq, sur la base de 11 avis">4,9(11)</span>',
+    );
+    const result = await extractListing({ url: 'https://www.leboncoin.fr/ad/velos/123', html });
+    const seller = result.listing.seller!;
+    expect(seller.displayName).toBe('VELEOS');
+    expect(seller.proAccount).toBe(true); // provient du blob, non écrasé
+    expect(seller.ratingAverage).toBeCloseTo(4.9, 5);
+    expect(seller.ratingCount).toBe(11);
+  });
+
+  it("laisse la note vide quand le vendeur n'en a pas (aucun widget)", async () => {
+    const result = await extractListing({
+      url: 'https://www.leboncoin.fr/ad/velos/124',
+      html: leboncoinHtml(''),
+    });
+    const seller = result.listing.seller!;
+    expect(seller.displayName).toBe('VELEOS');
+    expect(seller.proAccount).toBe(true);
+    expect(seller.ratingAverage).toBeUndefined();
+    expect(seller.ratingCount).toBeUndefined();
+  });
+});
