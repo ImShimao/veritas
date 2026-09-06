@@ -107,7 +107,12 @@ export function extractStructured(document: ParsedDocument): StructuredExtractio
       const seller = offers.seller;
       if (seller && typeof seller === 'object') {
         const sellerRecord = seller as Record<string, unknown>;
-        result.seller = { displayName: asString(sellerRecord.name) };
+        // La note du vendeur est celle attachée au vendeur lui-même, pas au
+        // produit (voir plus bas). On la lit donc sur ce nœud.
+        result.seller = {
+          displayName: asString(sellerRecord.name),
+          ...parseAggregateRating(sellerRecord.aggregateRating),
+        };
       }
     }
 
@@ -139,17 +144,11 @@ export function extractStructured(document: ParsedDocument): StructuredExtractio
       }
     }
 
-    const rating = product.aggregateRating;
-    if (rating && typeof rating === 'object') {
-      const record = rating as Record<string, unknown>;
-      const average = Number(record.ratingValue);
-      const count = Number(record.reviewCount ?? record.ratingCount);
-      result.seller = {
-        ...result.seller,
-        ...(Number.isFinite(average) ? { ratingAverage: average } : {}),
-        ...(Number.isFinite(count) ? { ratingCount: count } : {}),
-      };
-    }
+    // NB : `product.aggregateRating` est la note du PRODUIT (avis sur l'objet),
+    // pas celle du vendeur. Les confondre présenterait les avis d'un article
+    // comme un historique de confiance du vendeur — un signal fabriqué. La note
+    // vendeur ne provient donc que du nœud vendeur (ci-dessus) ou, à défaut,
+    // des sélecteurs de la plateforme.
 
     const address =
       product.address ?? (product.location as Record<string, unknown> | undefined)?.address;
@@ -218,6 +217,18 @@ export function extractStructured(document: ParsedDocument): StructuredExtractio
   }
 
   return result;
+}
+
+/** Lit une note (`ratingValue`) et un volume d'avis depuis un nœud `AggregateRating`. */
+function parseAggregateRating(value: unknown): { ratingAverage?: number; ratingCount?: number } {
+  if (!value || typeof value !== 'object') return {};
+  const record = value as Record<string, unknown>;
+  const average = Number(record.ratingValue);
+  const count = Number(record.reviewCount ?? record.ratingCount);
+  return {
+    ...(Number.isFinite(average) ? { ratingAverage: average } : {}),
+    ...(Number.isFinite(count) ? { ratingCount: count } : {}),
+  };
 }
 
 function normalizeOffers(offers: unknown): Record<string, unknown> | undefined {

@@ -49,6 +49,16 @@ export class GenericAdapter implements ExtractorAdapter {
       if (/^https?:\/\//.test(url)) images.add(url);
     }
 
+    // On conserve tout le vendeur extrait (nom ET note), sans le reconstruire :
+    // reconstruire en ne gardant que le nom effaçait la note structurée.
+    const seller =
+      structured.seller &&
+      (structured.seller.displayName ||
+        structured.seller.ratingAverage !== undefined ||
+        structured.seller.ratingCount !== undefined)
+        ? structured.seller
+        : undefined;
+
     return {
       title: title ? sanitize(title) : undefined,
       description: description ? sanitize(description) : undefined,
@@ -60,9 +70,7 @@ export class GenericAdapter implements ExtractorAdapter {
       attributes: structured.attributes,
       images: toListingImages([...images]),
       domain: context.domainHint,
-      seller: structured.seller?.displayName
-        ? { displayName: structured.seller.displayName }
-        : undefined,
+      seller,
     };
   }
 

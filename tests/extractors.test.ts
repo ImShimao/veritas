@@ -117,6 +117,46 @@ describe('extraction depuis données structurées', () => {
     expect(result.listing.price?.amount).toBe(300);
   });
 
+  it('ne prend pas la note du produit pour celle du vendeur', async () => {
+    // aggregateRating au niveau du produit = avis sur l'objet, pas sur le vendeur.
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Casque de vélo",
+        "offers": { "@type": "Offer", "price": "60", "priceCurrency": "EUR" },
+        "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "reviewCount": "523" }
+      }
+      </script></head><body></body></html>`;
+    const result = await extractListing({ url: 'https://boutique.example/casque', html });
+    expect(result.listing.seller?.ratingAverage).toBeUndefined();
+    expect(result.listing.seller?.ratingCount).toBeUndefined();
+  });
+
+  it('lit la note du vendeur quand elle est portée par le nœud vendeur', async () => {
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Casque de vélo",
+        "offers": {
+          "@type": "Offer", "price": "60", "priceCurrency": "EUR",
+          "seller": {
+            "@type": "Organization", "name": "VéloPro",
+            "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.7", "reviewCount": "range" }
+          }
+        }
+      }
+      </script></head><body></body></html>`;
+    const result = await extractListing({ url: 'https://boutique.example/casque2', html });
+    expect(result.listing.seller?.displayName).toBe('VéloPro');
+    expect(result.listing.seller?.ratingAverage).toBeCloseTo(4.7, 5);
+    // "range" n'est pas un nombre : le volume reste indéfini, pas 0.
+    expect(result.listing.seller?.ratingCount).toBeUndefined();
+  });
+
   it("marque l'extraction comme dégradée quand des champs manquent", async () => {
     const html = '<!doctype html><html><body><p>Page presque vide</p></body></html>';
     const result = await extractListing({ url: 'https://site.example/vide', html });
