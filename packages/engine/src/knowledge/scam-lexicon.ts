@@ -63,7 +63,11 @@ export const SCAM_LEXICON: LexiconEntry[] = [
   {
     criterionId: 'text.pressure.no_negotiation',
     patterns: [
-      /\bprix (ferme|non negociable|fixe et definitif)\b.*\b(urgent|rapide|vite)\b/,
+      // « prix ferme » suivi de près d'une pression réelle. On borne la distance
+      // (pas de fin de phrase entre les deux) et on exclut « rapide »/« vite »,
+      // qui, dans « envoi rapide » ou « réponse rapide », sont de simples
+      // arguments de vente parfaitement légitimes.
+      /\bprix (ferme|non negociable|fixe et definitif)[^.!\n]{0,20}\b(urgent|imperatif|imperative)\b/,
       /\bpas de (questions?|blabla|curieux|perte de temps)\b/,
       /\bs'abstenir\b.*\b(curieux|negociateurs?|plaisantins?)\b/,
       /\bje ne repondrai (pas|plus) aux questions\b/,
