@@ -9,6 +9,7 @@ import {
   sanitize,
   textUtils,
   type Evidence,
+  type ListingDomain,
 } from '@veritas/core';
 import type { Analyzer, AnalyzerContext, AnalyzerResult, SignalDraft } from './types';
 import {
@@ -67,7 +68,7 @@ export class TextAnalyzer implements Analyzer {
       };
     }
 
-    signals.push(...this.matchLexicon(normalized, rawText));
+    signals.push(...this.matchLexicon(normalized, rawText, listing.domain));
     signals.push(...this.analyzeStyle(rawText, normalized));
     signals.push(...this.analyzeCompleteness(context, rawText, normalized));
     signals.push(...this.analyzeContradictions(context, rawText, normalized));
@@ -90,10 +91,12 @@ export class TextAnalyzer implements Analyzer {
   }
 
   /** Applique le lexique et convertit chaque correspondance en signal. */
-  private matchLexicon(normalized: string, rawText: string): SignalDraft[] {
+  private matchLexicon(normalized: string, rawText: string, domain: ListingDomain): SignalDraft[] {
     const signals: SignalDraft[] = [];
 
     for (const entry of SCAM_LEXICON) {
+      // Entrée restreinte à certaines familles de biens : on l'ignore ailleurs.
+      if (entry.onlyDomains && !entry.onlyDomains.includes(domain)) continue;
       const matches = collectMatches(normalized, entry);
       if (matches.length === 0) continue;
 

@@ -132,6 +132,13 @@ export const TEXT_CRITERIA = defineCriteria('text', [
     severity: 'high',
   },
   {
+    id: 'text.logistics.shipping_only',
+    label: 'Envoi uniquement pour un bien à retirer',
+    rationale:
+      "Refuser toute remise en main propre pour un bien qu'on récupère normalement en personne (véhicule, meuble) empêche de le constater avant paiement. Anodin, en revanche, pour un petit objet expédiable.",
+    severity: 'medium',
+  },
+  {
     id: 'text.excuse.family_story',
     label: 'Récit personnel dramatique',
     rationale:

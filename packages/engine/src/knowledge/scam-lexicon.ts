@@ -10,6 +10,8 @@
  * change jamais la structure du score, seulement sa sensibilité.
  */
 
+import type { ListingDomain } from '@veritas/core';
+
 export interface LexiconEntry {
   criterionId: string;
   patterns: RegExp[];
@@ -20,6 +22,12 @@ export interface LexiconEntry {
   saturateAt?: number;
   /** Force minimale attribuée dès la première correspondance. */
   baseStrength?: number;
+  /**
+   * Restreint l'entrée à certaines familles de biens. Utile quand une tournure
+   * n'est un signal que dans un contexte précis : « envoi uniquement » est banal
+   * pour un vêtement mais notable pour une voiture. Absent = toutes familles.
+   */
+  onlyDomains?: ListingDomain[];
   /** Construit l'explication contextualisée affichée à l'utilisateur. */
   explain: (matches: string[]) => string;
 }
@@ -224,12 +232,24 @@ export const SCAM_LEXICON: LexiconEntry[] = [
       /\b(pas|aucune) (de )?(visite|remise en main propre|rencontre) (possible)?\b/,
       /\bvisite impossible\b/,
       /\bje ne peux pas (vous )?(recevoir|faire visiter|rencontrer)\b/,
-      /\benvoi (uniquement|seulement|obligatoire)\b/,
-      /\bexpedition (uniquement|obligatoire)\b/,
     ],
     saturateAt: 2,
     explain: (m) =>
       `Toute rencontre ou visite est exclue (${quote(m)}). Vous n'aurez donc jamais l'occasion de constater que le bien existe avant de payer.`,
+  },
+  {
+    // « Envoi uniquement » n'est un signal que pour un bien qu'on retire
+    // normalement en personne (voiture, meuble volumineux). Pour un vêtement ou
+    // un petit objet, l'expédition est la norme : on ne le signale pas, sous
+    // peine d'alerter sur la quasi-totalité des annonces honnêtes de Vinted.
+    criterionId: 'text.logistics.shipping_only',
+    patterns: [
+      /\benvoi (uniquement|seulement|obligatoire)\b/,
+      /\bexpedition (uniquement|obligatoire)\b/,
+    ],
+    onlyDomains: ['vehicle', 'furniture', 'real_estate'],
+    explain: (m) =>
+      `Pour ce type de bien, l'exclusion de toute remise en main propre au profit d'un envoi (${quote(m)}) est inhabituelle : elle empêche de constater l'objet avant de payer. Exigez au minimum une visite ou une visioconférence.`,
   },
   {
     criterionId: 'text.excuse.family_story',
