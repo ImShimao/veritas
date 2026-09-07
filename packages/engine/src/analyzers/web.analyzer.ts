@@ -195,14 +195,42 @@ export class WebAnalyzer implements Analyzer {
       });
     }
 
-    // Rappel de la vérification externe, avec requêtes prêtes à l'emploi.
-    signals.push({
-      criterionId: 'web.reputation.check_pending',
-      strength: 1,
-      explanation:
-        "Une recherche du pseudonyme, du numéro de téléphone ou d'un extrait caractéristique de l'annonce sur un moteur de recherche fait souvent remonter des signalements publics. Les requêtes correspondantes sont préparées dans le rapport.",
-      evidence: [{ kind: 'link', label: 'Vérifications externes', value: 'requêtes préparées' }],
-    });
+    // Rappel de la vérification externe. Quand le pseudonyme est connu, on
+    // prépare des recherches réellement cliquables plutôt que d'y renvoyer dans
+    // le vague : « avis » remonte la réputation, « arnaque/litige » les
+    // signalements publics.
+    const sellerName = listing.seller?.displayName?.trim();
+    if (sellerName && sellerName.length > 1) {
+      const search = (query: string) =>
+        `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      signals.push({
+        criterionId: 'web.reputation.check_pending',
+        strength: 1,
+        explanation: `Recherchez le vendeur « ${sellerName} » sur le web : les avis et les signalements publics y remontent souvent. Deux recherches sont prêtes ci-dessous ; ajoutez son numéro de téléphone s'il est communiqué.`,
+        evidence: [
+          {
+            kind: 'link',
+            label: `Rechercher « ${sellerName} » avis`,
+            value: search(`"${sellerName}" avis`),
+          },
+          {
+            kind: 'link',
+            label: `Rechercher « ${sellerName} » arnaque / litige`,
+            value: search(`"${sellerName}" arnaque OR litige OR signalement`),
+          },
+        ],
+      });
+    } else {
+      signals.push({
+        criterionId: 'web.reputation.check_pending',
+        strength: 1,
+        explanation:
+          "Recherchez le pseudonyme du vendeur, son numéro de téléphone ou un extrait caractéristique de l'annonce sur un moteur de recherche : les avis et les signalements publics y remontent souvent.",
+        evidence: [
+          { kind: 'metadata', label: 'Vérification externe', value: 'recherche recommandée' },
+        ],
+      });
+    }
 
     return {
       name: this.name,

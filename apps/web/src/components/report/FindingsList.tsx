@@ -168,8 +168,21 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
                                 key={`${finding.criterionId}-${evidenceIndex}`}
                                 className="rounded-lg border border-border bg-elevated/60 px-3 py-2 text-[0.8125rem]"
                               >
-                                <span className="text-faint">{evidence.label} : </span>
-                                <span className="text-ink">{evidence.value}</span>
+                                {evidence.kind === 'link' && /^https?:\/\//.test(evidence.value) ? (
+                                  <a
+                                    href={evidence.value}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="font-medium text-accent hover:underline"
+                                  >
+                                    {evidence.label} ↗
+                                  </a>
+                                ) : (
+                                  <>
+                                    <span className="text-faint">{evidence.label} : </span>
+                                    <span className="text-ink">{evidence.value}</span>
+                                  </>
+                                )}
                                 {evidence.excerpt && (
                                   <p className="mt-1 border-l-2 border-border-strong pl-2 italic text-muted">
                                     {evidence.excerpt}
