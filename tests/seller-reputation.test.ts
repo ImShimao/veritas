@@ -72,6 +72,23 @@ describe('réputation vendeur : ne pas confondre « inconnu » et « zéro »', 
     expect(ids.has('seller.reputation.unknown')).toBe(false);
   });
 
+  it('surface une bonne note sur un volume modeste (ni silence, ni « solide »)', async () => {
+    // Cas VELEOS réel : 4,9 sur 11 avis. Trop peu pour « réputation solide »
+    // (≥ 20), mais il ne faut pas rester muet : le bon avis doit apparaître.
+    const modest = makeListing({
+      title: 'Vélo',
+      domain: 'sport_leisure',
+      description: 'Vélo à vendre.',
+      price: { amount: 400, currency: 'EUR' },
+      seller: { displayName: 'VELEOS', proAccount: true, ratingAverage: 4.9, ratingCount: 11 },
+    });
+    const { ids } = await firedCriteria(modest);
+    expect(ids.has('seller.reputation.favorable')).toBe(true);
+    expect(ids.has('seller.reputation.strong')).toBe(false);
+    expect(ids.has('seller.reputation.no_reviews')).toBe(false);
+    expect(ids.has('seller.reputation.unknown')).toBe(false);
+  });
+
   it('exploite la note quand elle est bien présente', async () => {
     const rated = makeListing({
       title: 'Ordinateur portable',

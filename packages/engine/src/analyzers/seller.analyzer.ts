@@ -139,6 +139,19 @@ export class SellerAnalyzer implements Analyzer {
             { kind: 'metadata', label: 'Note', value: `${ratingAverage.toFixed(1)}/${scale}` },
           ],
         });
+      } else if (normalizedScore >= 4.2) {
+        // Bonne note, mais volume trop faible (< 20 avis) pour parler de
+        // « réputation solide ». On surface tout de même la note : sans cela,
+        // un vendeur correctement noté n'apparaîtrait avec aucun signal.
+        signals.push({
+          criterionId: 'seller.reputation.favorable',
+          strength: Math.min(0.6, ramp(count, 3, 20) * 0.5 + 0.2),
+          explanation: `Le vendeur affiche ${ratingAverage.toFixed(1)}/${scale} sur ${count} avis. C'est un bon signe, sur un volume encore modeste : encourageant, mais moins probant qu'un long historique.`,
+          evidence: [
+            { kind: 'metadata', label: 'Note', value: `${ratingAverage.toFixed(1)}/${scale}` },
+            { kind: 'metadata', label: 'Volume', value: `${count} avis` },
+          ],
+        });
       }
 
       // Note parfaite sur un très gros volume : profil statistiquement improbable.

@@ -30,6 +30,22 @@ describe('estimation de prix par catégorie', () => {
     expect(links.some((l) => l.url.includes('leboncoin'))).toBe(true);
     expect(links.some((l) => l.engine.toLowerCase().includes('neuf'))).toBe(true);
   });
+
+  it('ne prend pas un kilométrage pour une année de sortie', () => {
+    // « 2000 km » ne doit pas vieillir le vélo de vingt-cinq ans et écraser la
+    // fourchette d'occasion jusqu'au plancher de dépréciation.
+    const withMileage = makeListing({
+      title: 'Vélo gravel carbone Shimano GRX',
+      domain: 'sport_leisure',
+      description: 'Gravel carbone, transmission Shimano GRX, 2000 km, très bon état.',
+      price: { amount: 2400, currency: 'EUR' },
+    });
+    const estimate = estimateCategoryPrice(withMileage)!;
+    expect(estimate).toBeDefined();
+    // Un vélo récent conserve plus de la moitié de sa valeur ; s'il était vu
+    // comme vieux de 25 ans, usedHigh tomberait sous 0,45 × neuf.
+    expect(estimate.usedHigh).toBeGreaterThan(estimate.newPrice * 0.5);
+  });
 });
 
 describe('rapport de prix toujours renseigné', () => {

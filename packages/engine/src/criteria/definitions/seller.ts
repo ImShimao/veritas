@@ -68,6 +68,14 @@ export const SELLER_CRITERIA = defineCriteria('seller', [
     severity: 'high',
   },
   {
+    id: 'seller.reputation.favorable',
+    label: 'Bons avis, volume modeste',
+    rationale:
+      "Une bonne note sur un nombre d'avis encore limité est un signe encourageant, sans avoir la robustesse statistique d'un historique fourni.",
+    polarity: 'positive',
+    severity: 'low',
+  },
+  {
     id: 'seller.reputation.poor',
     label: 'Note dégradée',
     rationale:

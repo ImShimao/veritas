@@ -170,10 +170,19 @@ const DOMAIN_HINTS: Partial<
   collectible: { newPrice: 200, usedRatio: 1, label: 'objet de collection' },
 };
 
-/** Extrait l'année déclarée, pour dater la dépréciation. */
+/**
+ * Extrait l'année déclarée, pour dater la dépréciation.
+ *
+ * Écueil classique : un kilométrage ou une puissance (« 2000 km », « 1500 w »)
+ * ressemble à une année. Un nombre immédiatement suivi d'une unité est donc
+ * exclu — sans quoi un vélo « 2000 km » serait vieilli de vingt-cinq ans et
+ * déprécié jusqu'au plancher, faussant complètement la fourchette d'occasion.
+ */
 function extractYear(text: string): number | undefined {
   const now = new Date().getFullYear();
-  const matches = text.match(/\b(19[89]\d|20[0-4]\d)\b/g);
+  const matches = text.match(
+    /\b(19[89]\d|20[0-4]\d)\b(?!\s{0,2}(?:km|kms|kilo|cm|mm|kg|g|w|watt|mah|go|mo|to|ml|bar|€|eur|x))/gi,
+  );
   if (!matches) return undefined;
   const years = matches.map(Number).filter((y) => y >= 1990 && y <= now + 1);
   return years.length ? Math.max(...years) : undefined;
