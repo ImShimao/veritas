@@ -66,6 +66,79 @@ function setupAutoUpdate() {
   autoUpdater.checkForUpdates().catch(() => undefined);
 }
 
+/** URL de la page des dernières versions publiées. */
+const RELEASES_URL = 'https://github.com/ImShimao/veritas/releases/latest';
+
+/**
+ * Vérification de mise à jour déclenchée par l'utilisateur.
+ *
+ * Contrairement à la vérification automatique (silencieuse par conception), on
+ * affiche toujours un retour : à jour, mise à jour en cours, ou échec avec un
+ * lien de secours. C'est précisément ce qui manquait quand une version restait
+ * bloquée sans que l'utilisateur puisse le savoir ni y remédier.
+ */
+async function checkForUpdatesInteractive() {
+  const version = app.getVersion();
+  if (!app.isPackaged) {
+    await dialog.showMessageBox({
+      type: 'info',
+      title: 'Mises à jour',
+      message: `Version de développement (${version}).`,
+      detail: "La vérification automatique n'est disponible que sur une version installée.",
+    });
+    return;
+  }
+
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch {
+    void shell.openExternal(RELEASES_URL);
+    return;
+  }
+
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    const latest = result?.updateInfo?.version;
+    if (latest && latest !== version) {
+      await dialog.showMessageBox({
+        type: 'info',
+        title: 'Mise à jour disponible',
+        message: `La version ${latest} est disponible (vous avez ${version}).`,
+        detail:
+          'Elle se télécharge en arrière-plan ; vous serez invité à redémarrer une fois prête.',
+      });
+    } else {
+      await dialog.showMessageBox({
+        type: 'info',
+        title: 'Veritas est à jour',
+        message: `Vous utilisez déjà la dernière version (${version}).`,
+      });
+    }
+  } catch (error) {
+    const choice = await dialog.showMessageBox({
+      type: 'warning',
+      buttons: ['Ouvrir la page des versions', 'Fermer'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Vérification impossible',
+      message: "La vérification automatique des mises à jour n'a pas abouti.",
+      detail: `${error instanceof Error ? error.message : String(error)}\n\nVous pouvez télécharger la dernière version manuellement.`,
+    });
+    if (choice.response === 0) void shell.openExternal(RELEASES_URL);
+  }
+}
+
+/** Fenêtre « À propos » : affiche notamment la version installée. */
+async function showAbout() {
+  await dialog.showMessageBox({
+    type: 'info',
+    title: 'À propos de Veritas',
+    message: `Veritas ${app.getVersion()}`,
+    detail: 'Analyse de confiance des annonces en ligne — 100 % local.\n© ImShimao',
+  });
+}
+
 /** Une seule instance : un second lancement ramène la fenêtre existante. */
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -193,7 +266,9 @@ function createWindow(port) {
     backgroundColor: '#0d0e12',
     show: false,
     autoHideMenuBar: true,
-    title: 'Veritas',
+    // La version dans le titre rend immédiatement visible ce qu'on exécute —
+    // ce qui manquait pour repérer une installation restée en arrière.
+    title: `Veritas ${app.getVersion()}`,
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       // L'interface n'a besoin d'aucun pont Node : on garde l'isolation maximale.
@@ -258,6 +333,17 @@ app.whenReady().then(async () => {
           { role: 'copy', label: 'Copier' },
           { role: 'paste', label: 'Coller' },
           { role: 'selectAll', label: 'Tout sélectionner' },
+        ],
+      },
+      {
+        label: 'Aide',
+        submenu: [
+          {
+            label: 'Rechercher des mises à jour…',
+            click: () => void checkForUpdatesInteractive(),
+          },
+          { type: 'separator' },
+          { label: 'À propos de Veritas', click: () => void showAbout() },
         ],
       },
     ]),
