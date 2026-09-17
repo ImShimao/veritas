@@ -358,11 +358,22 @@ export class PriceAnalyzer implements Analyzer {
       criterionId = 'price.deviation.below_market';
       strength = 0.4 + 0.6 * ramp(Math.abs(deviation), 0.12, 0.25);
       explanation = `Le prix de ${formatMoney(observed, currency)} est ${formatPercent(Math.abs(deviation))} sous la valeur attendue (${refSummary}). Bonne affaire plausible, dans la fourchette de négociation habituelle entre particuliers.`;
+    } else if (deviation >= 0.25 && newPrice && observed <= newPrice * 1.05) {
+      // Au-dessus de la valeur d'OCCASION attendue, mais au prix du NEUF ou en
+      // dessous : ce n'est pas « surpayer ». C'est une faible décote, cohérente
+      // avec un bien neuf ou quasi neuf. Sans ce garde-fou, un vélo vendu à son
+      // prix catalogue était accusé de « +80 % au-dessus du marché ».
+      verdict = 'fair';
+      criterionId = 'price.deviation.near_new';
+      strength = 1;
+      explanation = `Le prix de ${formatMoney(observed, currency)} laisse peu de décote par rapport au neuf (${refSummary}). Rien d'anormal si le bien est neuf ou très peu servi ; s'il est d'occasion, la décote habituelle justifie de négocier.`;
     } else if (deviation >= 0.25) {
       verdict = 'above_market';
       criterionId = 'price.deviation.above_market';
       strength = ramp(deviation, 0.25, 0.6);
-      explanation = `Le prix de ${formatMoney(observed, currency)} dépasse de ${formatPercent(deviation)} la valeur attendue (${refSummary}). Ce n'est pas un signal de fraude, mais vous surpayez probablement : la négociation est justifiée.`;
+      explanation = newPrice
+        ? `Le prix de ${formatMoney(observed, currency)} dépasse même le prix du neuf (${refSummary}). Ce n'est pas un signal de fraude, mais vous surpayez : la négociation est justifiée.`
+        : `Le prix de ${formatMoney(observed, currency)} dépasse de ${formatPercent(deviation)} la valeur attendue (${refSummary}). Ce n'est pas un signal de fraude, mais vous surpayez probablement : la négociation est justifiée.`;
     } else {
       verdict = 'fair';
       criterionId = 'price.deviation.fair';

@@ -41,6 +41,15 @@ export const PRICE_CRITERIA = defineCriteria('price', [
     impact: { trust: -0.2, risk: 0.1 },
   },
   {
+    id: 'price.deviation.near_new',
+    label: 'Prix proche du neuf',
+    rationale:
+      "Un prix supérieur à la valeur d'occasion attendue mais inférieur ou égal au prix du neuf n'est pas un signe de fraude ni de surfacturation : il correspond à un bien neuf ou très peu servi, ou à une faible décote à négocier.",
+    severity: 'info',
+    polarity: 'neutral',
+    weight: 0,
+  },
+  {
     id: 'price.deviation.fair',
     label: 'Prix cohérent avec le marché',
     rationale:

@@ -61,6 +61,26 @@ describe('rapport de prix toujours renseigné', () => {
     expect(['safe', 'likely_safe', 'caution']).toContain(report.verdict);
   });
 
+  it('ne crie pas « vous surpayez » sur un prix proche du neuf', async () => {
+    // Cas SAVA VEGUR : vélo de route carbone vendu ~2200 € neuf, proposé 2199 €.
+    // L'ancien comportement le comparait à la valeur d'occasion (~1200 €) et
+    // annonçait « +80 % au-dessus du marché » — absurde à son prix catalogue.
+    const nearNew = makeListing({
+      title: 'Vélo de route carbone Shimano 105',
+      domain: 'sport_leisure',
+      description: 'Vélo de route en carbone, transmission Shimano 105, très bon état, peu servi.',
+      price: { amount: 2199, currency: 'EUR' },
+    });
+    const report = await engine.analyze(nearNew);
+    const price = report.price!;
+    // Le prix est sous le neuf estimé : ni « surpayé », ni « au-dessus du marché ».
+    expect(price.newPrice).toBeGreaterThanOrEqual(price.observed);
+    expect(price.verdict).not.toBe('above_market');
+    const ids = report.findings.map((f) => f.criterionId);
+    expect(ids).not.toContain('price.deviation.above_market');
+    expect(price.explanation.toLowerCase()).not.toContain('surpayez');
+  });
+
   it('reste prudent : une estimation ne déclenche pas un signal fort', async () => {
     // Prix cassé (600 €) sur un vélo estimé bien plus cher : signalé, mais
     // atténué car la référence n'est qu'une estimation.
